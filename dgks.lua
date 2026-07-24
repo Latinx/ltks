@@ -1,5 +1,4 @@
 --TODO List
---Scrolling combat text (Pour) falls back to chat print due to secret yPos values — investigate LibSink or MSBT integration
 --BattleNet friend broadcasts are commented out
 --Log classes on prey/predators
 --Nemesis notifications
@@ -1887,20 +1886,52 @@ function dgks:GetKillshotSound(streak)
 	return dgks.db.profile.kssound[1];
 end
 
+local dgks_ctFrame
+local dgks_ctActive = {}
+
+local function dgks_CT_OnUpdate(self, elapsed)
+	for i = #dgks_ctActive, 1, -1 do
+		local fs = dgks_ctActive[i]
+		fs.elapsed_total = (fs.elapsed_total or 0) + elapsed
+		local t = fs.elapsed_total
+		fs:SetPoint("CENTER", dgks_ctFrame, "CENTER", 0, 60 * t)
+		if t > 1.5 then
+			fs:SetAlpha(max(0, 1 - (t - 1.5)))
+		end
+		if t > 2.5 then
+			fs:Hide()
+			fs:SetParent(nil)
+			tremove(dgks_ctActive, i)
+		end
+	end
+	if #dgks_ctActive == 0 then
+		self:SetScript("OnUpdate", nil)
+	end
+end
+
+local function dgks_ShowScrollText(msg, r, g, b)
+	if not dgks_ctFrame then
+		dgks_ctFrame = CreateFrame("Frame", "dgksCombatText", UIParent)
+		dgks_ctFrame:SetSize(1, 1)
+		dgks_ctFrame:SetPoint("CENTER", 0, -120)
+		dgks_ctFrame:SetFrameStrata("HIGH")
+	end
+	local fs = dgks_ctFrame:CreateFontString(nil, "HIGH", "GameFontNormalLarge")
+	fs:SetText(msg)
+	fs:SetTextColor(r or 1, g or 0.1, b or 0.1)
+	fs:SetPoint("CENTER", dgks_ctFrame, "CENTER", 0, 0)
+	fs.elapsed_total = 0
+	tinsert(dgks_ctActive, fs)
+	dgks_ctFrame:SetScript("OnUpdate", dgks_CT_OnUpdate)
+end
+
 function dgks:ScrollText(msg)
 	
 	tinsert(dgks.db.profile.killlog, 1, "[" .. date() .. "] " .. msg)
 	if (dgks.db.profile.killlog[21]) then tremove(dgks.db.profile.killlog,21) end
 	
 	if (dgks.db.profile.docombattext) then
-		--if (GetCVar("enableFloatingCombatText") == "0") then
-		--	dgks:Print("Setting Combat Scrolling Text for Self to enabled. Please /reload your UI or restart client.")
-		--	SetCVar("enableFloatingCombatText", 1)
-		--end
-		local ok, err = pcall(function() dgks:Pour(msg, 1.0, 0.1, 0.1) end)
-		if not ok then
-			dgks:Print(msg)
-		end
+		dgks_ShowScrollText(msg, 1.0, 0.1, 0.1)
 	end
 end
 
