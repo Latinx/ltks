@@ -2153,5 +2153,6 @@ function dgks:OnEnable()
 	end
 	--self:SetSinkStorage(self.db.profile)
 	--Check if this is dgks_classic, if so print warning and set path correctly
-
+	streak = dgks.db.profile.lastStreak or 0
+	deathstreak = 0
 end
