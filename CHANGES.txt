@@ -1,0 +1,40 @@
+lightweight tag 65421f63e468edbba281c7422e1c5915c3b6e8ef 12.0.001
+Author:	Lance Inman <linman0x90@gmail.com>
+Date:	Mon Jan 19 09:41:45 2026 -0800
+
+commit 65421f63e468edbba281c7422e1c5915c3b6e8ef
+Author: Lance Inman <linman0x90@gmail.com>
+Date:   Mon Jan 19 09:41:45 2026 -0800
+
+    .toc and tag fix
+
+commit 0235772a28bb547073ce1f4d6b89ab1b55f415a4
+Author: Lance Inman <linman0x90@gmail.com>
+Date:   Mon Jan 19 09:39:40 2026 -0800
+
+    .toc
+
+commit 7c3dccf40c5a591bd953ca674bfdf683e214a2b1
+Author: Lance Inman <linman0x90@gmail.com>
+Date:   Mon Jan 19 09:38:18 2026 -0800
+
+    .toc
+
+commit ec39b22075990520d58f28f5584ddd90b9dbb94f
+Author: Lance Inman <linman0x90@gmail.com>
+Date:   Mon Jan 19 09:32:28 2026 -0800
+
+    Another attempt at .toc update.
+
+commit c6805a4cf9e09ba56e2aba2c8e138932ea314c2a
+Author: Lance Inman <linman0x90@gmail.com>
+Date:   Mon Jan 19 09:26:47 2026 -0800
+
+    Updated .toc
+
+commit c2e1ecd99b9949fd4cfc8462c8579b5937d87a69
+Author: Lance Inman <linman0x90@gmail.com>
+Date:   Mon Jan 19 09:15:22 2026 -0800
+
+    Updated .toc
+
