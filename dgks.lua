@@ -1556,7 +1556,7 @@ function dgks:CombatLogEventHandler(info, timestamp, event, hideCaster, sourceGU
 		if (bit.band(destFlags, COMBATLOG_OBJECT_TYPE_PLAYER) == COMBATLOG_OBJECT_TYPE_PLAYER) or dgks.db.profile.dopve then
 			-- A unit has died to someone in our party
 				
-			if sourceGUID == UnitGUID("player") then
+			if string.format("%s", sourceGUID) == string.format("%s", UnitGUID("player")) then
 							
 				--[===[@debug@
 				-- Dev Debugging functions
@@ -1635,7 +1635,9 @@ function dgks:CombatLogEventHandler(info, timestamp, event, hideCaster, sourceGU
 end
 
 function dgks:PartyKillHandler(attackerGUID, targetGUID)
-    if not attackerGUID or not strmatch(attackerGUID, UnitGUID("player")) then return end
+    local attackerStr = string.format("%s", attackerGUID)
+    local playerStr = string.format("%s", UnitGUID("player"))
+    if attackerStr ~= playerStr then return end
     local targetName = GetNameFromGUID(targetGUID)
     if targetName then
         local isPlayer = targetGUID and targetGUID:sub(1, 6) == "Player"
@@ -1646,7 +1648,9 @@ function dgks:PartyKillHandler(attackerGUID, targetGUID)
 end
 
 function dgks:UnitDiedHandler(unitGUID)
-    if not unitGUID or not strmatch(unitGUID, UnitGUID("player")) then return end
+    local unitStr = string.format("%s", unitGUID)
+    local playerStr = string.format("%s", UnitGUID("player"))
+    if unitStr ~= playerStr then return end
     self:PlayerDeath("Unknown Entity")
 end
 
