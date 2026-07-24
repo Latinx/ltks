@@ -238,6 +238,7 @@ end
 -- Addon lifecycle (AceAddon-compatible)
 -- Provides: Print, RegisterChatCommand, RegisterComm, SendCommMessage,
 --           Serialize, Deserialize, GetSinkAce3OptionsDataTable, SetSinkStorage
+-- Calls OnInitialize then OnEnable on ADDON_LOADED event
 ---------------------------------------------------------------------------
 
 local slashCommands = {}
@@ -301,6 +302,17 @@ function DGKS.NewAddon(name)
 		}
 	end
 
+	-- Lifecycle: call OnInitialize then OnEnable on ADDON_LOADED
+	local loadFrame = CreateFrame("Frame")
+	loadFrame:RegisterEvent("ADDON_LOADED")
+	loadFrame:SetScript("OnEvent", function(_, event, loadedAddon)
+		if loadedAddon == name then
+			loadFrame:UnregisterEvent("ADDON_LOADED")
+			if addon.OnInitialize then addon:OnInitialize() end
+			if addon.OnEnable then addon:OnEnable() end
+		end
+	end)
+
 	return addon
 end
 
@@ -309,11 +321,13 @@ end
 ---------------------------------------------------------------------------
 
 local commFrame = CreateFrame("Frame")
-local commHandlers = {}
 
 commFrame:RegisterEvent("CHAT_MSG_ADDON")
 commFrame:SetScript("OnEvent", function(_, event, prefix, message, distribution, sender)
 	if event == "CHAT_MSG_ADDON" then
-		_G.dgks:OnCommReceived(prefix, message, distribution, sender)
+		local addon = _G.dgks
+		if addon and addon.db and addon.OnCommReceived then
+			addon:OnCommReceived(prefix, message, distribution, sender)
+		end
 	end
 end)
