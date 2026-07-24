@@ -1645,7 +1645,8 @@ function dgks:CombatLogEventHandler(info, timestamp, event, hideCaster, sourceGU
 end
 
 function dgks:PartyKillHandler(attackerGUID, targetGUID)
-    if attackerGUID == UnitGUID("player") then
+    local unit = UnitTokenFromGUID(attackerGUID)
+    if unit == "player" then
         local targetName = GetNameFromGUID(targetGUID)
         if targetName then
             local isPlayer = targetGUID and targetGUID:sub(1, 6) == "Player"
@@ -1657,7 +1658,8 @@ function dgks:PartyKillHandler(attackerGUID, targetGUID)
 end
 
 function dgks:UnitDiedHandler(unitGUID)
-    if unitGUID == UnitGUID("player") then
+    local unit = UnitTokenFromGUID(unitGUID)
+    if unit == "player" then
         self:PlayerDeath("Unknown Entity")
     end
 end
