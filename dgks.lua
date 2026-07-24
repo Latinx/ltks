@@ -82,7 +82,7 @@ local function IsRetail()
     return WOW_PROJECT_ID == 1
 end
 
-dgks = LibStub("AceAddon-3.0"):NewAddon("dgks", "AceEvent-3.0", "AceConsole-3.0", "LibSink-2.0","AceComm-3.0","AceSerializer-3.0")
+dgks = DGKS.NewAddon("dgks")
 
 function sortListByLength(t,a,b)
 	local acount, bcount = 0,0
@@ -1465,7 +1465,7 @@ local defaults = {
 function dgks:OnInitialize()
 
 	-- Setup DB
-	self.db = LibStub("AceDB-3.0"):New("dgksDB", defaults, true)
+	self.db = DGKS.NewDB("dgksDB", defaults, true)
 
 	self:SetSinkStorage(self.db.profile)
 
