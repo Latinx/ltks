@@ -1,24 +1,14 @@
 --TODO List
---Duel win detection
---Pet kills on Hunters
---Battleground start msg closer to start of bg
---Nemesis notifications
+--Scrolling combat text (Pour) falls back to chat print due to secret yPos values — investigate LibSink or MSBT integration
+--BattleNet friend broadcasts are commented out
 --Log classes on prey/predators
---Feature parity with Killshot
-	-- Random Text
-	-- X Random Pet - No longer possible 
-	-- X Execute
-	-- X Screenshot
-	-- Random Emote
---Reduce externals/libs
---NPC Emote Targeting
---Just making a change so twitch triggers an update
+--Nemesis notifications
 --Cross Character Killer Klvl Kclass KGuild Victim Vlvl VClass VGuild Timestamp Location Killshot_Log
 --Cross server ranking system (bnet channels)
-
---Blood Moon Notes
---2/18 17:11:17.231  SPELL_AURA_APPLIED,Player-5814-01E766E1,"Armena-LoneWolf",0x548,0x0,Player-5814-01E766E1,"Armena-LoneWolf",0x548,0x0,436097,"Blood Moon",0x1,BUFF
---2/18 17:30:38.447  SPELL_AURA_REMOVED,Player-5814-01D25EEF,"Nop-LoneWolf",0x511,0x1,Player-5814-01D25EEF,"Nop-LoneWolf",0x511,0x1,436097,"Blood Moon",0x1,BUFF
+--Reduce externals/libs
+--NPC Emote Targeting
+--Blood Moon event tracking (spell ID 436097)
+--Version bump and changelog for 12.0.7 changes
 
 
 local version = "12.0.7"
@@ -1645,25 +1635,19 @@ function dgks:CombatLogEventHandler(info, timestamp, event, hideCaster, sourceGU
 end
 
 function dgks:PartyKillHandler(attackerGUID, targetGUID)
-    local inInstance = IsInInstance()
-    if inInstance then return end
-    if attackerGUID == UnitGUID("player") then
-        local targetName = GetNameFromGUID(targetGUID)
-        if targetName then
-            local isPlayer = targetGUID and targetGUID:sub(1, 6) == "Player"
-            if isPlayer or dgks.db.profile.dopve then
-                self:KillshotTX(targetName, GetTime())
-            end
+    if not attackerGUID or not strmatch(attackerGUID, UnitGUID("player")) then return end
+    local targetName = GetNameFromGUID(targetGUID)
+    if targetName then
+        local isPlayer = targetGUID and targetGUID:sub(1, 6) == "Player"
+        if isPlayer or dgks.db.profile.dopve then
+            self:KillshotTX(targetName, GetTime())
         end
     end
 end
 
 function dgks:UnitDiedHandler(unitGUID)
-    local inInstance = IsInInstance()
-    if inInstance then return end
-    if unitGUID == UnitGUID("player") then
-        self:PlayerDeath("Unknown Entity")
-    end
+    if not unitGUID or not strmatch(unitGUID, UnitGUID("player")) then return end
+    self:PlayerDeath("Unknown Entity")
 end
 
 function dgks:KillshotTX(txvictim,txtimestamp)
