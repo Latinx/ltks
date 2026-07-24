@@ -44,6 +44,25 @@ local inBG = false
 local lastMessage, lastSender, lastTimestamp --Versionchecking duplicate detection
 local soundPath = "Interface\\AddOns\\dgks\\sounds\\"
 
+local randomEmotes = {
+	"AGREE","AMAZE","ANGRY","APOLOGIZE","APPLAUD","BELCH","BLOWKISS","BOGGLE",
+	"BONK","BORED","BOUNCE","BOW","BRB","BURP","BYE","CACKLE","CALM",
+	"CHEER","CHICKEN","CHUCKLE","CLAP","COMFORT","COMMEND","CONFUSED",
+	"CONGRATULATE","COUGH","COWER","CRACK","CRINGE","CRY","CUDDLE","CURIOUS",
+	"CURTSEY","DANCE","DOOM","DRINK","DROOL","EAT","EYE","FART","FIDGET",
+	"FROWN","GASP","GLARE","GLOAT","GOLFCLAP","GREET","GRIN","GROAN",
+	"GROWL","GUFFAW","HAIL","HAPPY","HISS","HUG","INSULT","INTRODUCE",
+	"JK","KISS","KNEEL","KNUCKLES","LAUGH","LICK","LISTEN","LOST","LOVE",
+	"ANGRY","MASSAGE","MOAN","MOCK","MOO","MOON","MOURN","NO","NOD",
+	"NOSEPICK","PAT","PEER","SHOO","PITY","PLEAD","POINT","POKE","PONDER",
+	"POUNCE","PULSE","PRAISE","PRAY","PURR","PUZZLE","TALKQ","RAISE",
+	"RASP","READY","SHAKE","ROAR","ROFL","RUDE","SALUTE","SEXY","SHIMMY",
+	"SHY","SIGH","JOKE","SLAP","SMELL","SMILE","SMIRK","SNARL","SNICKER",
+	"SNIFF","SNUB","SOOTHE","APOLOGIZE","SPIT","STARE","SURPRISED","TAP",
+	"TAUNT","TEASE","THANK","THREATEN","TICKLE","TIRED","VETO","VICTORY",
+	"VIOLIN","WAVE","WELCOME","WHINE","WHISTLE","WINK","WORK","YAWN"
+}
+
 local function GetFullUnitName(unit)
     local name, realm = UnitName(unit)
     if name and realm and realm ~= "" then
@@ -317,6 +336,7 @@ local function giveGeneral()
 				end,
 				values = {
 					none = "None",
+					RANDOM = "Random",
 					BELCH = "Belch",
 					BOGGLE = "Boggle",
 					BONK = "Bonk",
@@ -803,6 +823,7 @@ local function giveDuels()
 				end,
 				values = {
 					none = "None",
+					RANDOM = "Random",
 					BELCH = "Belch",
 					BOGGLE = "Boggle",
 					BONK = "Bonk",
@@ -947,6 +968,7 @@ local function giveDuels()
 				end,
 				values = {
 					none = "None",
+					RANDOM = "Random",
 					BELCH = "Belch",
 					BLOWKISS = "Blow Kiss",
 					BOGGLE = "Boggle",
@@ -1017,6 +1039,7 @@ local function giveDuels()
 					MOON = "Moon",
 					MOURN = "Mourn",
 					NO = "No",
+					NOD = "Nod",
 					NOSEPICK = "Nosepick",
 					PAT = "Pat",
 					PEER = "Peer",
@@ -1694,7 +1717,11 @@ function dgks:PlayerLoss(myKiller)
 	if (dgks.db.profile.dochatbox) then dgks:Print("You been defeated by "..myKiller.." "..#dgks.db.profile.deathList[myKiller].." times.") end
 	if dgks.db.profile.doscreenshotonduelloss then Screenshot() end
 	if dgks.db.profile.duelemoteloss ~= "none" then
-		DoEmote(dgks.db.profile.duelemoteloss, myKiller)
+		local emote = dgks.db.profile.duelemoteloss
+		if emote == "RANDOM" then
+			emote = randomEmotes[math.random(#randomEmotes)]
+		end
+		DoEmote(emote, myKiller)
 	end
 end
 
@@ -1761,19 +1788,27 @@ function dgks:OnCommReceived(cchan, message, distribution, sender)
 				end
 				if (dgks.db.profile.doemote ~= "none" and playerName == rxkiller) then
 					-- fixme targeting doesn't seem to work with NPCs
-					DoEmote(dgks.db.profile.doemote, rxvictim)
+					local emote = dgks.db.profile.doemote
+					if emote == "RANDOM" then
+						emote = randomEmotes[math.random(#randomEmotes)]
+					end
+					DoEmote(emote, rxvictim)
 				end
 			else
 				killshottext = string.gsub(string.gsub(dgks.db.profile.dueltext, "$k", rxkiller), "$v", rxvictim)
 				--Duel Emotes
-				if (dgks.db.profile.dueltxtemote and playerName == rxkiller) then
-					emotestring=string.gsub(string.gsub(dgks.db.profile.duelcustomemote, "$v", rxvictim), "$s", streak)
-					SendChatMessage(emotestring, "EMOTE")
+			if (dgks.db.profile.dueltxtemote and playerName == rxkiller) then
+				emotestring=string.gsub(string.gsub(dgks.db.profile.duelcustomemote, "$v", rxvictim), "$s", streak)
+				SendChatMessage(emotestring, "EMOTE")
+			end
+			if (dgks.db.profile.duelemotewin ~= "none" and playerName == rxkiller) then
+				-- fixme targeting doesn't seem to work with NPCs
+				local emote = dgks.db.profile.duelemotewin
+				if emote == "RANDOM" then
+					emote = randomEmotes[math.random(#randomEmotes)]
 				end
-				if (dgks.db.profile.duelemotewin ~= "none" and playerName == rxkiller) then
-					-- fixme targeting doesn't seem to work with NPCs
-					DoEmote(dgks.db.profile.duelemotewin, rxvictim)
-				end
+				DoEmote(emote, rxvictim)
+			end
 			end
 			
 			-- Send to sink for local output
