@@ -1916,7 +1916,7 @@ local function dgks_ShowScrollText(msg, r, g, b)
 		dgks_ctFrame:SetPoint("CENTER", 0, -120)
 		dgks_ctFrame:SetFrameStrata("HIGH")
 	end
-	local fs = dgks_ctFrame:CreateFontString(nil, "HIGH", "GameFontNormalLarge")
+	local fs = dgks_ctFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
 	fs:SetText(msg)
 	fs:SetTextColor(r or 1, g or 0.1, b or 0.1)
 	fs:SetPoint("CENTER", dgks_ctFrame, "CENTER", 0, 0)
