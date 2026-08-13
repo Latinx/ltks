@@ -152,7 +152,7 @@ end
 local function giveOptions() 
 	local options = { 
 		type = "group",
-		name = "dG KillShot",
+		name = "lT KillShot",
 		--handler = ltks,/dgk
 		get = function(k) return db[k.arg] end,
 		set = function(k, v) db[k.arg] = v end,
@@ -207,7 +207,7 @@ local function giveOptions()
 			},
 			resetltks = {
 				type = 'execute',
-				name = 'Reset All dG Killshot Settings',
+				name = 'Reset All lT Killshot Settings',
 				func = function()
 					streak = 0
 					deathstreak = 0
@@ -1413,7 +1413,7 @@ local function giveOutput()
 		args = {
 			desc = {
 				type = "description",
-				name = "You can select where you want dG Killshot Combat messages displayed from this screen.",
+				name = "You can select where you want lT Killshot Combat messages displayed from this screen.",
 				order = 0
 			},
 			sink = ltks:GetSinkAce3OptionsDataTable(),
@@ -1499,33 +1499,33 @@ function ltks:OnInitialize()
 	end
 
 	if (addonName == "ltks_classic") then
-		SendSystemMessage("Please switch to dG Killshot, the classic specific version, dG Killshot Classic, is no longer getting updates.")
+		SendSystemMessage("Please switch to lT Killshot, the classic specific version, lT Killshot Classic, is no longer getting updates.")
 		self.db.soundPath = "Interface\\AddOns\\ltks_classic\\sounds\\"
 	end
 
 	-- Setup Config Screens
 	local AceConfigRegistry = LibStub("AceConfigRegistry-3.0")
 
-	AceConfigRegistry:RegisterOptionsTable("dG KillShot", giveOptions)
-	AceConfigRegistry:RegisterOptionsTable("dG KillShot General", giveGeneral)
-	AceConfigRegistry:RegisterOptionsTable("dG KillShot Broadcasts", giveBroadcasts)
-	AceConfigRegistry:RegisterOptionsTable("dG KillShot Screenshots", giveScreenshots)
-	AceConfigRegistry:RegisterOptionsTable("dG KillShot Duels", giveDuels)
-	AceConfigRegistry:RegisterOptionsTable("dG KillShot Ranks", giveRanks)
-	AceConfigRegistry:RegisterOptionsTable("dG KillShot File Setup", giveSoundFileSetup)
-	AceConfigRegistry:RegisterOptionsTable("dG KillShot Output", giveOutput)	
+	AceConfigRegistry:RegisterOptionsTable("lT KillShot", giveOptions)
+	AceConfigRegistry:RegisterOptionsTable("lT KillShot General", giveGeneral)
+	AceConfigRegistry:RegisterOptionsTable("lT KillShot Broadcasts", giveBroadcasts)
+	AceConfigRegistry:RegisterOptionsTable("lT KillShot Screenshots", giveScreenshots)
+	AceConfigRegistry:RegisterOptionsTable("lT KillShot Duels", giveDuels)
+	AceConfigRegistry:RegisterOptionsTable("lT KillShot Ranks", giveRanks)
+	AceConfigRegistry:RegisterOptionsTable("lT KillShot File Setup", giveSoundFileSetup)
+	AceConfigRegistry:RegisterOptionsTable("lT KillShot Output", giveOutput)	
 	
 	local AceConfigDialog = LibStub("AceConfigDialog-3.0")
 	
-	local _, mainCategoryID = AceConfigDialog:AddToBlizOptions("dG KillShot", "dG KillShot")
-	AceConfigDialog:AddToBlizOptions("dG KillShot General", "General", "dG KillShot")
-	AceConfigDialog:AddToBlizOptions("dG KillShot Broadcasts", "Broadcasts", "dG KillShot")
-	AceConfigDialog:AddToBlizOptions("dG KillShot Screenshots", "Screenshots", "dG KillShot")
-	AceConfigDialog:AddToBlizOptions("dG KillShot Duels", "Duels", "dG KillShot")
-	AceConfigDialog:AddToBlizOptions("dG KillShot Ranks", "Ranks", "dG KillShot")
+	local _, mainCategoryID = AceConfigDialog:AddToBlizOptions("lT KillShot", "lT KillShot")
+	AceConfigDialog:AddToBlizOptions("lT KillShot General", "General", "lT KillShot")
+	AceConfigDialog:AddToBlizOptions("lT KillShot Broadcasts", "Broadcasts", "lT KillShot")
+	AceConfigDialog:AddToBlizOptions("lT KillShot Screenshots", "Screenshots", "lT KillShot")
+	AceConfigDialog:AddToBlizOptions("lT KillShot Duels", "Duels", "lT KillShot")
+	AceConfigDialog:AddToBlizOptions("lT KillShot Ranks", "Ranks", "lT KillShot")
 	-- Clean up UI
-	-- AceConfigDialog:AddToBlizOptions("dG KillShot File Setup", "Sound File Setup", "dG KillShot")
-	AceConfigDialog:AddToBlizOptions("dG KillShot Output", "Combat Text Output", "dG KillShot")
+	-- AceConfigDialog:AddToBlizOptions("lT KillShot File Setup", "Sound File Setup", "lT KillShot")
+	AceConfigDialog:AddToBlizOptions("lT KillShot Output", "Combat Text Output", "lT KillShot")
 
 	-- Setup slash commands
 	-- The triple call fixes bug that doesn't open on first run and expans the sub pages
@@ -1533,7 +1533,7 @@ function ltks:OnInitialize()
 		if mainCategoryID then
 			Settings.OpenToCategory(mainCategoryID)
 		else
-			Settings.OpenToCategory("dG KillShot")
+			Settings.OpenToCategory("lT KillShot")
 		end
 	end
 	self:RegisterChatCommand("ltks", OpenSettings)
