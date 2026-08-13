@@ -22,16 +22,43 @@ local lastrxtimestamp = 0
 local recentKills = {}
 local lastkill = 0
 local timestamp = 0
-local lastToHurtMe = ""
+-- Last source of damage against the player, used to name the killer on
+-- PLAYER_DEAD. Only populated from non-secret combat log payloads (Midnight
+-- restricts identity in instanced PvP, dungeons and raids).
+local lastDamageSource = nil
 local newestconfigversion = 1
 local frame, events = CreateFrame("Frame"), {};
 local damageDealers = {}
+
+-- Project discriminator (mainline/retail vs the Classic clients), per
+-- Blizzard's ProjectConstants.lua (WOW_PROJECT_MAINLINE = 1). Declared before
+-- any consumer: the old global IsRetail() no longer exists on Midnight, and a
+-- file-local must be defined above its uses to be visible to them.
+local function IsRetail()
+    return WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
+end
+
+-- Midnight restricts COMBAT_LOG_EVENT_UNFILTERED: registering it while addon
+-- restrictions are active (instanced PvP, dungeons/raids, combat lockdown)
+-- raises ADDON_ACTION_FORBIDDEN. Registration is deferred until an unrestricted
+-- moment, retried on zone change and combat end, and pcall-guarded so a missed
+-- restriction can never crash the addon.
+local cleuRegistered = false
+local function TryRegisterCLEU()
+	if cleuRegistered or not IsRetail() then return end
+	if InCombatLockdown and InCombatLockdown() then return end
+	local _, instanceType = IsInInstance()
+	if instanceType then return end
+	if C_EventUtils and C_EventUtils.IsEventValid and not C_EventUtils.IsEventValid("COMBAT_LOG_EVENT_UNFILTERED") then return end
+	local ok, registered = pcall(frame.RegisterEvent, frame, "COMBAT_LOG_EVENT_UNFILTERED")
+	cleuRegistered = ok and registered ~= false
+end
 local targetList = {} -- Used for Execute
 local playerName = UnitName("player")
 local inArena = false
 local inBG = false
 local lastMessage, lastSender, lastTimestamp --Versionchecking duplicate detection
-local soundPath = "Interface\\AddOns\\dgks\\sounds\\"
+local soundPath = "Interface\\AddOns\\ltks\\sounds\\"
 
 local randomEmotes = {
 	"AGREE","AMAZE","ANGRY","APOLOGIZE","APPLAUD","BELCH","BLOWKISS","BOGGLE",
@@ -78,11 +105,7 @@ local function GetNameFromGUID(guid)
     return nil
 end
 
-local function IsRetail()
-    return WOW_PROJECT_ID == 1
-end
-
-dgks = DGKS.NewAddon("dgks")
+ltks = LibStub("AceAddon-3.0"):NewAddon("ltks", "AceEvent-3.0", "AceConsole-3.0", "LibSink-2.0","AceComm-3.0","AceSerializer-3.0")
 
 function sortListByLength(t,a,b)
 	local acount, bcount = 0,0
@@ -130,7 +153,7 @@ local function giveOptions()
 	local options = { 
 		type = "group",
 		name = "dG KillShot",
-		--handler = dgks,/dgk
+		--handler = ltks,/dgk
 		get = function(k) return db[k.arg] end,
 		set = function(k, v) db[k.arg] = v end,
 		args = {
@@ -141,29 +164,29 @@ local function giveOptions()
 			},
 			prey = {
 				type = "description",
-				name = "Top Prey:\n" .. getSortedList(dgks.db.profile.killList, 5),
+				name = "Top Prey:\n" .. getSortedList(ltks.db.profile.killList, 5),
 				order = 5
 			},
 			predators = {
 				type = "description",
-				name = "Top Predators:\n" .. getSortedList(dgks.db.profile.deathList, 5),
+				name = "Top Predators:\n" .. getSortedList(ltks.db.profile.deathList, 5),
 				order = 10
 			},
 			killstreak = {
 				type = "description",
-				name = "Current killing streak: " .. (dgks.db.profile.lastStreak or 0) .. "\nLongest killing streak: " .. dgks.db.profile.maxstreak .. "\n",
+				name = "Current killing streak: " .. (ltks.db.profile.lastStreak or 0) .. "\nLongest killing streak: " .. ltks.db.profile.maxstreak .. "\n",
 				order = 12,
 				width = 1
 			},
 			deathstreak = {
 				type = "description",
-				name = "Current death streak: " .. deathstreak .. "\nLongest death streak: " .. dgks.db.profile.maxdeathstreak .. "\n",
+				name = "Current death streak: " .. deathstreak .. "\nLongest death streak: " .. ltks.db.profile.maxdeathstreak .. "\n",
 				order = 14,
 				width = 2
 			},
 			maxks = {
 				type = "description",
-				name = "Last 20 Kills\n" .. dgks.getKillLog(),
+				name = "Last 20 Kills\n" .. ltks.getKillLog(),
 				order = 15
 			},
 			resetmaxks = {
@@ -173,41 +196,41 @@ local function giveOptions()
 					streak = 0
 					deathstreak = 0
 					multikill = 0
-					dgks.db.profile.maxstreak = dgks.db.defaults.profile.maxstreak
-					dgks.db.profile.maxdeathstreak = dgks.db.defaults.profile.maxdeathstreak
-					dgks.db.profile.killlog = dgks.db.defaults.profile.killlog
-					dgks.db.profile.killList = dgks.db.defaults.profile.killList
-					dgks.db.profile.deathList = dgks.db.defaults.profile.deathList
+					ltks.db.profile.maxstreak = ltks.db.defaults.profile.maxstreak
+					ltks.db.profile.maxdeathstreak = ltks.db.defaults.profile.maxdeathstreak
+					ltks.db.profile.killlog = ltks.db.defaults.profile.killlog
+					ltks.db.profile.killList = ltks.db.defaults.profile.killList
+					ltks.db.profile.deathList = ltks.db.defaults.profile.deathList
 				end,
 				width = "full",
 				order = 20
 			},
-			resetdgks = {
+			resetltks = {
 				type = 'execute',
 				name = 'Reset All dG Killshot Settings',
 				func = function()
 					streak = 0
 					deathstreak = 0
 					multikill = 0
-					dgks.db:ResetProfile()
+					ltks.db:ResetProfile()
 				end,
 				width = "full",
 				order = 30
 			},
 			--[===[@debug@
 			-- Dev Debugging functions
-			testdgkskill = {
+			testltkskill = {
 				type = 'execute',
 				name = 'Simulate Killshot',
 				func = function()
-					dgks:Test()
+					ltks:Test()
 				end
 			},
 			testdgdeath = {
 				type = 'execute',
 				name = 'Simulate Death',
 				func = function()
-					dgks:TestPlayerDeath()
+					ltks:TestPlayerDeath()
 				end
 			}
 			--@end-debug@]===]
@@ -220,22 +243,22 @@ local function giveGeneral()
 	local general = {
 		type = "group",
 		name = "General",
-		handler = dgks,
+		handler = ltks,
 		args = {
 			style = {
 				type = 'select',
 				name = 'Select how often to trigger killshots notifications:',
 				desc = 'DoTA plays sound on every kill, UT plays on new ranks',
 				get = function()
-					return dgks.db.profile.style
+					return ltks.db.profile.style
 				end,
 				set = function(info,b)
-					dgks.db.profile.style = b
+					ltks.db.profile.style = b
 					
 				end,
 				values = {
 					dota = "Every Killshot (DoTA/LoL Style)",
-					ut = "Every " .. dgks.db.profile.utrank .. " Killshots (Unreal Tournament Style)"
+					ut = "Every " .. ltks.db.profile.utrank .. " Killshots (Unreal Tournament Style)"
 				},
 				order = 10,
 				width = 2
@@ -244,10 +267,10 @@ local function giveGeneral()
 				type = 'toggle',
 				name = 'Play prepare sound when entering battlegrounds',
 				get = function()
-					return dgks.db.profile.dopreparesound
+					return ltks.db.profile.dopreparesound
 				end,
 				set = function(info, b)
-					dgks.db.profile.dopreparesound = b
+					ltks.db.profile.dopreparesound = b
 				end,
 				width = "full",
 				order = 11
@@ -256,10 +279,10 @@ local function giveGeneral()
 				type = 'toggle',
 				name = 'Play execute sound when Player target hits threshold',
 				get = function()
-					return dgks.db.profile.doexecutesound
+					return ltks.db.profile.doexecutesound
 				end,
 				set = function(info, b)
-					dgks.db.profile.doexecutesound = b
+					ltks.db.profile.doexecutesound = b
 				end,
 				width = "full",
 				order = 12
@@ -268,10 +291,10 @@ local function giveGeneral()
 				type = 'toggle',
 				name = 'Play execute sound when NPC target hits threshold',
 				get = function()
-					return dgks.db.profile.doexecutesoundpve
+					return ltks.db.profile.doexecutesoundpve
 				end,
 				set = function(info, b)
-					dgks.db.profile.doexecutesoundpve = b
+					ltks.db.profile.doexecutesoundpve = b
 				end,
 				width = "full",
 				order = 13
@@ -281,9 +304,9 @@ local function giveGeneral()
 				name = 'Execute Percent',
 				desc = 'The percent health that triggers the execute sound',
 				width = "full",
-				get = function() return dgks.db.profile.doexecutepercent end,
-				set = function(info, v) dgks.db.profile.doexecutepercent = v end,
-				disabled = function() if dgks.db.profile.doexecutesound or dgks.db.profile.doexecutesoundpve then return false else return true end end,
+				get = function() return ltks.db.profile.doexecutepercent end,
+				set = function(info, v) ltks.db.profile.doexecutepercent = v end,
+				disabled = function() if ltks.db.profile.doexecutesound or ltks.db.profile.doexecutesoundpve then return false else return true end end,
 				min = 1,
 				max = 40,
 				step = 1,
@@ -291,12 +314,12 @@ local function giveGeneral()
 			},
 			dochatbox = {
 				type = 'toggle',
-				name = 'Print killshots and deaths in chatbox in addition to logging in /dgks',
+				name = 'Print killshots and deaths in chatbox in addition to logging in /ltks',
 				get = function()
-					return dgks.db.profile.dochatbox
+					return ltks.db.profile.dochatbox
 				end,
 				set = function(info, b)
-					dgks.db.profile.dochatbox = b
+					ltks.db.profile.dochatbox = b
 				end,
 				width = "full",
 				order = 15
@@ -305,10 +328,10 @@ local function giveGeneral()
 				type = 'toggle',
 				name = 'Clear Streaks on Zone Change',
 				get = function()
-					return dgks.db.profile.dozonechange
+					return ltks.db.profile.dozonechange
 				end,
 				set = function(info, b)
-					dgks.db.profile.dozonechange = b
+					ltks.db.profile.dozonechange = b
 				end,
 				width = "full",
 				order = 20
@@ -318,10 +341,10 @@ local function giveGeneral()
 				name = 'Do built in Emote',
 				desc = 'Choose an Emote',
 				get = function()
-					return dgks.db.profile.doemote
+					return ltks.db.profile.doemote
 				end,
 				set = function(info, b)
-					dgks.db.profile.doemote = b
+					ltks.db.profile.doemote = b
 				end,
 				values = {
 					none = "None",
@@ -464,10 +487,10 @@ local function giveGeneral()
 				name = 'Show Custom Emote',
 				desc = 'Toggle Emote Spam',
 				get = function()
-					return dgks.db.profile.dotxtemote
+					return ltks.db.profile.dotxtemote
 				end,
 				set = function(info, b)
-					dgks.db.profile.dotxtemote = b
+					ltks.db.profile.dotxtemote = b
 				end,
 				width = "full",
 				order = 30
@@ -478,10 +501,10 @@ local function giveGeneral()
 				desc = "Use this to customize the emote message. $v = victim $s = streak",
 				usage = "<message>",
 				get = function()
-					return dgks.db.profile.ksemote
+					return ltks.db.profile.ksemote
 				end,
 				set = function(info, b)
-					dgks.db.profile.ksemote = b
+					ltks.db.profile.ksemote = b
 				end,
 				width = "full",
 				order = 40
@@ -491,10 +514,10 @@ local function giveGeneral()
 				name = "Show Combat Text (Game setting Combat->Scrolling Combat Text for Self must also be enabled.)",
 				desc = 'Toggle Combat Text Spam',
 				get = function()
-					return dgks.db.profile.docombattext
+					return ltks.db.profile.docombattext
 				end,
 				set = function(info, b)
-					dgks.db.profile.docombattext = b
+					ltks.db.profile.docombattext = b
 				end,
 				width = "full",
 				order = 50
@@ -505,10 +528,10 @@ local function giveGeneral()
 				desc = 'Use this to customize the Scrolling Text Message. $k = killer, $v = victim',
 				usage = "<message>",
 				get = function()
-					return dgks.db.profile.kstext
+					return ltks.db.profile.kstext
 				end,
 				set = function(info, b)
-					dgks.db.profile.kstext = b
+					ltks.db.profile.kstext = b
 				end,
 				width = "full",
 				order = 60
@@ -518,10 +541,10 @@ local function giveGeneral()
 				name = 'Summon Random Pet',
 				desc = 'Summon Random Pet on Killshot',
 				get = function()
-					return dgks.db.profile.dopet
+					return ltks.db.profile.dopet
 				end,
 				set = function(info, b)
-					dgks.db.profile.dopet = b
+					ltks.db.profile.dopet = b
 				end,
 				width = "full",
 				order = 30
@@ -545,10 +568,10 @@ local function giveGeneral()
 				name = "Play Sounds",
 				desc = 'Toggle Sound Spam',
 				get = function()
-					return dgks.db.profile.dosound
+					return ltks.db.profile.dosound
 				end,
 				set = function(info, b)
-					dgks.db.profile.dosound = b
+					ltks.db.profile.dosound = b
 				end,
 				order = 70
 			},
@@ -557,10 +580,10 @@ local function giveGeneral()
 				name = "Sound Channel",
 				desc = 'Select the sound channel used for audio notifications. Default: Master',
 				get = function()
-					return dgks.db.profile.soundchannel
+					return ltks.db.profile.soundchannel
 				end,
 				set = function(info, b)
-					dgks.db.profile.soundchannel = b
+					ltks.db.profile.soundchannel = b
 				end,
 				values = {
 					Master = "Master",
@@ -575,10 +598,10 @@ local function giveGeneral()
 				name = "Trigger off NPC/PVE Killshots - VERY SPAMMY, use for testing.",
 				desc = "Please don't use this",
 				get = function()
-					return dgks.db.profile.dopve
+					return ltks.db.profile.dopve
 				end,
 				set = function(info, b)
-					dgks.db.profile.dopve = b
+					ltks.db.profile.dopve = b
 				end,
 				width = "full",
 				order = 90
@@ -592,17 +615,17 @@ local function giveBroadcasts()
 	local broadcasts = {
 		type = "group",
 		name = "Broadcasts",
-		handler = dgks,
+		handler = ltks,
 		args = {
 			dobroadcasts = {
 				type = 'toggle',
 				name = 'Enable Broadcasts',
 				desc = 'Enable/Disable all broadcasts',
 				get = function()
-					return dgks.db.profile.dobroadcasts
+					return ltks.db.profile.dobroadcasts
 				end,
 				set = function(info, b)
-					dgks.db.profile.dobroadcasts = b
+					ltks.db.profile.dobroadcasts = b
 				end,
 				width = "full",
 				order = 80
@@ -610,15 +633,15 @@ local function giveBroadcasts()
 			doguild = {
 				type = 'toggle',
 				name = 'Broadcasts to/from Guild',
-				desc = 'Broadcast killshot to dgks users in guild.',
+				desc = 'Broadcast killshot to ltks users in guild.',
 				get = function()
-					return dgks.db.profile.doguild
+					return ltks.db.profile.doguild
 				end,
 				set = function(info, c)
-					dgks.db.profile.doguild = c
+					ltks.db.profile.doguild = c
 				end,
 				disabled = function()
-					return not dgks.db.profile.dobroadcasts
+					return not ltks.db.profile.dobroadcasts
 				end,
 				width = "full",
 				order = 90
@@ -626,15 +649,15 @@ local function giveBroadcasts()
 			doraid = {
 				type = 'toggle',
 				name = 'Broadcasts to/from Party/Raid/Instance',
-				desc = 'Broadcast killshot to dgks users in your paty or raid.',
+				desc = 'Broadcast killshot to ltks users in your paty or raid.',
 				get = function()
-					return dgks.db.profile.doraid
+					return ltks.db.profile.doraid
 				end,
 				set = function(info, d)
-					dgks.db.profile.doraid = d
+					ltks.db.profile.doraid = d
 				end,
 				disabled = function()
-					return not dgks.db.profile.dobroadcasts
+					return not ltks.db.profile.dobroadcasts
 				end,
 				width = "full",
 				order = 110
@@ -644,13 +667,13 @@ local function giveBroadcasts()
 				name = 'Broadcast to/from Battleground',
 				desc = 'Broadcast killshot to battleground.',
 				get = function()
-					return dgks.db.profile.dobg
+					return ltks.db.profile.dobg
 				end,
 				set = function(info, e)
-					dgks.db.profile.dobg = e
+					ltks.db.profile.dobg = e
 				end,
 				disabled = function()
-					return not dgks.db.profile.dobroadcasts
+					return not ltks.db.profile.dobroadcasts
 				end,
 				width = "full",
 				order = 120
@@ -660,13 +683,13 @@ local function giveBroadcasts()
 				name = 'Broadcast to Friends',
 				desc = 'Broadcast killshot to friends.',
 				get = function()
-					return dgks.db.profile.dofriends
+					return ltks.db.profile.dofriends
 				end,
 				set = function(info, e)
-					dgks.db.profile.dofriends = e
+					ltks.db.profile.dofriends = e
 				end,
 				disabled = function()
-					return not dgks.db.profile.dobroadcasts
+					return not ltks.db.profile.dobroadcasts
 				end,
 				width = "full",
 				order = 125
@@ -688,17 +711,17 @@ local function giveScreenshots()
 	local screenshots = {
 		type = "group",
 		name = "Screenshots",
-		handler = dgks,
+		handler = ltks,
 		args = {
 			doscreenshotonkill = {
 				type = 'toggle',
 				name = 'Enable Screenshot on Killshot',
 				desc = 'Enable Screenshot on Killshot',
 				get = function()
-					return dgks.db.profile.doscreenshotonkill
+					return ltks.db.profile.doscreenshotonkill
 				end,
 				set = function(info, b)
-					dgks.db.profile.doscreenshotonkill = b
+					ltks.db.profile.doscreenshotonkill = b
 				end,
 				width = "full",
 				order = 80
@@ -708,10 +731,10 @@ local function giveScreenshots()
 				name = 'Enable Screenshot on new max killing streak',
 				desc = 'Enable Screenshot on new max killing streak',
 				get = function()
-					return dgks.db.profile.doscreenshotonstreak
+					return ltks.db.profile.doscreenshotonstreak
 				end,
 				set = function(info, b)
-					dgks.db.profile.doscreenshotonstreak = b
+					ltks.db.profile.doscreenshotonstreak = b
 				end,
 				width = "full",
 				order = 90
@@ -721,10 +744,10 @@ local function giveScreenshots()
 				name = 'Enable Screenshot on multikill',
 				desc = 'Enable Screenshot on multikill',
 				get = function()
-					return dgks.db.profile.doscreenshotonmultikill
+					return ltks.db.profile.doscreenshotonmultikill
 				end,
 				set = function(info, b)
-					dgks.db.profile.doscreenshotonmultikill = b
+					ltks.db.profile.doscreenshotonmultikill = b
 				end,
 				width = "full",
 				order = 100
@@ -734,10 +757,10 @@ local function giveScreenshots()
 				name = 'Enable Screenshot on duel win',
 				desc = '',
 				get = function()
-					return dgks.db.profile.doscreenshotonduelwin
+					return ltks.db.profile.doscreenshotonduelwin
 				end,
 				set = function(info, b)
-					dgks.db.profile.doscreenshotonduelwin = b
+					ltks.db.profile.doscreenshotonduelwin = b
 				end,
 				width = "full",
 				order = 105
@@ -747,10 +770,10 @@ local function giveScreenshots()
 				name = 'Enable Screenshot on duel loss',
 				desc = '',
 				get = function()
-					return dgks.db.profile.doscreenshotonduelloss
+					return ltks.db.profile.doscreenshotonduelloss
 				end,
 				set = function(info, b)
-					dgks.db.profile.doscreenshotonduelloss = b
+					ltks.db.profile.doscreenshotonduelloss = b
 				end,
 				width = "full",
 				order = 106
@@ -760,10 +783,10 @@ local function giveScreenshots()
 				name = 'Enable Screenshot on death',
 				desc = 'Enable Screenshot on death',
 				get = function()
-					return dgks.db.profile.doscreenshotondeath
+					return ltks.db.profile.doscreenshotondeath
 				end,
 				set = function(info, b)
-					dgks.db.profile.doscreenshotondeath = b
+					ltks.db.profile.doscreenshotondeath = b
 				end,
 				width = "full",
 				order = 110
@@ -785,17 +808,17 @@ local function giveDuels()
 	local duels = {
 		type = "group",
 		name = "Duels",
-		handler = dgks,
+		handler = ltks,
 		args = {
 			duelhumiliation = {
 				type = 'toggle',
 				name = 'Play humiliation when player flees a duel',
 				desc = '',
 				get = function()
-					return dgks.db.profile.duelhumiliation
+					return ltks.db.profile.duelhumiliation
 				end,
 				set = function(info, b)
-					dgks.db.profile.duelhumiliation = b
+					ltks.db.profile.duelhumiliation = b
 				end,
 				width = "full",
 				order = 10
@@ -805,10 +828,10 @@ local function giveDuels()
 				name = 'Emote for Duel Win',
 				desc = 'Choose an Emote',
 				get = function()
-					return dgks.db.profile.duelemotewin
+					return ltks.db.profile.duelemotewin
 				end,
 				set = function(info, b)
-					dgks.db.profile.duelemotewin = b
+					ltks.db.profile.duelemotewin = b
 				end,
 				values = {
 					none = "None",
@@ -950,10 +973,10 @@ local function giveDuels()
 				name = 'Emote for Duel Loss',
 				desc = 'Choose an Emote',
 				get = function()
-					return dgks.db.profile.duelemoteloss
+					return ltks.db.profile.duelemoteloss
 				end,
 				set = function(info, b)
-					dgks.db.profile.duelemoteloss = b
+					ltks.db.profile.duelemoteloss = b
 				end,
 				values = {
 					none = "None",
@@ -1097,10 +1120,10 @@ local function giveDuels()
 				name = 'Show Custom Emote',
 				desc = 'Toggle Emote Spam',
 				get = function()
-					return dgks.db.profile.dueltxtemote
+					return ltks.db.profile.dueltxtemote
 				end,
 				set = function(info, b)
-					dgks.db.profile.dueltxtemote = b
+					ltks.db.profile.dueltxtemote = b
 				end,
 				width = "full",
 				order = 30
@@ -1111,10 +1134,10 @@ local function giveDuels()
 				desc = "Use this to customize the emote message. $v = victim $s = streak",
 				usage = "<message>",
 				get = function()
-					return dgks.db.profile.duelcustomemote
+					return ltks.db.profile.duelcustomemote
 				end,
 				set = function(info, b)
-					dgks.db.profile.duelcustomemoteemote = b
+					ltks.db.profile.duelcustomemoteemote = b
 				end,
 				width = "full",
 				order = 40
@@ -1125,10 +1148,10 @@ local function giveDuels()
 				desc = 'Use this to customize the Scrolling Text Message. $k = killer, $v = victim',
 				usage = "<message>",
 				get = function()
-					return dgks.db.profile.dueltext
+					return ltks.db.profile.dueltext
 				end,
 				set = function(info, b)
-					dgks.db.profile.dueltext = b
+					ltks.db.profile.dueltext = b
 				end,
 				width = "full",
 				order = 60
@@ -1149,9 +1172,9 @@ local function giveRanks()
 				name = 'KS Rank 1',
 				desc = 'Number of kills to reach Rank 1',
 				width = "full",
-				get = function() return dgks.db.profile.ksrank[1] end,
-				set = function(info, v) dgks.db.profile.ksrank[1] = v end,
-				disabled = function() if (dgks.db.profile.style == "dota") then return false else return true end end,
+				get = function() return ltks.db.profile.ksrank[1] end,
+				set = function(info, v) ltks.db.profile.ksrank[1] = v end,
+				disabled = function() if (ltks.db.profile.style == "dota") then return false else return true end end,
 				min = 1,
 				max = 50,
 				step = 1
@@ -1161,9 +1184,9 @@ local function giveRanks()
 				name = 'KS Rank 2',
 				desc = 'Number of kills to reach Rank 2',
 				width = "full",
-				get = function() return dgks.db.profile.ksrank[2] end,
-				set = function(info, v) dgks.db.profile.ksrank[2] = v end,
-				disabled = function() if (dgks.db.profile.style == "dota") then return false else return true end end,
+				get = function() return ltks.db.profile.ksrank[2] end,
+				set = function(info, v) ltks.db.profile.ksrank[2] = v end,
+				disabled = function() if (ltks.db.profile.style == "dota") then return false else return true end end,
 				min = 0,
 				max = 50,
 				step = 1
@@ -1174,12 +1197,12 @@ local function giveRanks()
 				desc = 'Number of kills to reach Rank 3',
 				width = "full",
 				get = function()
-					return dgks.db.profile.ksrank[3]
+					return ltks.db.profile.ksrank[3]
 				end,
 				set = function(info, v)
-					dgks.db.profile.ksrank[3] = v
+					ltks.db.profile.ksrank[3] = v
 				end,
-				disabled = function() if (dgks.db.profile.style == "dota") then return false else return true end end,
+				disabled = function() if (ltks.db.profile.style == "dota") then return false else return true end end,
 				min = 0,
 				max = 50,
 				step = 1
@@ -1190,12 +1213,12 @@ local function giveRanks()
 				desc = 'Number of kills to reach Rank 4',
 				width = "full",
 				get = function()
-					return dgks.db.profile.ksrank[4]
+					return ltks.db.profile.ksrank[4]
 				end,
 				set = function(info, v)
-					dgks.db.profile.ksrank[4] = v
+					ltks.db.profile.ksrank[4] = v
 				end,
-				disabled = function() if (dgks.db.profile.style == "dota") then return false else return true end end,
+				disabled = function() if (ltks.db.profile.style == "dota") then return false else return true end end,
 				min = 0,
 				max = 50,
 				step = 1
@@ -1206,12 +1229,12 @@ local function giveRanks()
 				desc = 'Number of kills to reach Rank 5',
 				width = "full",
 				get = function()
-					return dgks.db.profile.ksrank[5]
+					return ltks.db.profile.ksrank[5]
 				end,
 				set = function(info, v)
-					dgks.db.profile.ksrank[5] = v
+					ltks.db.profile.ksrank[5] = v
 				end,
-				disabled = function() if (dgks.db.profile.style == "dota") then return false else return true end end,
+				disabled = function() if (ltks.db.profile.style == "dota") then return false else return true end end,
 				min = 0,
 				max = 50,
 				step = 1
@@ -1221,9 +1244,9 @@ local function giveRanks()
 				name = 'KS Rank 6',
 				desc = 'Number of kills to reach Rank 6',
 				width = "full",
-				get = function() return dgks.db.profile.ksrank[6] end,
-				set = function(info, v)	dgks.db.profile.ksrank[6] = v end,
-				disabled = function() if (dgks.db.profile.style == "dota") then return false else return true end end,
+				get = function() return ltks.db.profile.ksrank[6] end,
+				set = function(info, v)	ltks.db.profile.ksrank[6] = v end,
+				disabled = function() if (ltks.db.profile.style == "dota") then return false else return true end end,
 				min = 0,
 				max = 50,
 				step = 1
@@ -1233,9 +1256,9 @@ local function giveRanks()
 				name = 'KS Rank 7',
 				desc = 'Number of kills to reach Rank 7',
 				width = "full",
-				get = function() return dgks.db.profile.ksrank[7] end,
-				set = function(info, v)	dgks.db.profile.ksrank[7] = v end,
-				disabled = function() if (dgks.db.profile.style == "dota") then return false else return true end end,
+				get = function() return ltks.db.profile.ksrank[7] end,
+				set = function(info, v)	ltks.db.profile.ksrank[7] = v end,
+				disabled = function() if (ltks.db.profile.style == "dota") then return false else return true end end,
 				min = 0,
 				max = 50,
 				step = 1
@@ -1245,9 +1268,9 @@ local function giveRanks()
 				name = 'Unreal Tournament Multiplier',
 				width = "double",
 				desc = 'Number of kills between notifies, ex: 3 would play sounds at 3,9,12,...',
-				get = function() return dgks.db.profile.utrank end,
-				set = function(info, v) dgks.db.profile.utrank = v end,
-				disabled = function() if (dgks.db.profile.style == "ut") then return false else return true end end,
+				get = function() return ltks.db.profile.utrank end,
+				set = function(info, v) ltks.db.profile.utrank = v end,
+				disabled = function() if (ltks.db.profile.style == "ut") then return false else return true end end,
 				min = 1,
 				max = 10,
 				step = 1
@@ -1268,7 +1291,7 @@ local function giveSoundFileSetup()
 				type = 'execute',
 				width = "full",
 				name = 'Reset to default files',
-				func = function() dgks.db.profile.kssound = dgks.db.defaults.profile.kssound end,
+				func = function() ltks.db.profile.kssound = ltks.db.defaults.profile.kssound end,
 			},
 			kssound1 = {
 				type = 'input',
@@ -1276,10 +1299,10 @@ local function giveSoundFileSetup()
 				desc = 'Choose a sound file',
 				usage = "End the name of a sound file",
 				get = function()
-					return dgks.db.profile.kssound[1]
+					return ltks.db.profile.kssound[1]
 				end,
 				set = function(info, v)
-					dgks.db.profile.kssound[1] = v
+					ltks.db.profile.kssound[1] = v
 				end
 			},
 			kssound2 = {
@@ -1288,10 +1311,10 @@ local function giveSoundFileSetup()
 			desc = 'Choose a sound file',
 				usage = "End the name of a sound file",
 				get = function()
-				return dgks.db.profile.kssound[2]
+				return ltks.db.profile.kssound[2]
 					end,
 				set = function(info, v)
-					dgks.db.profile.kssound[2] = v
+					ltks.db.profile.kssound[2] = v
 				end
 				},
 			kssound3 = {
@@ -1300,10 +1323,10 @@ local function giveSoundFileSetup()
 				desc = 'Choose a sound file',
 				usage = "End the name of a sound file",
 				get = function()
-					return dgks.db.profile.kssound[3]
+					return ltks.db.profile.kssound[3]
 				end,
 				set = function(info, v)
-					dgks.db.profile.kssound[3] = v
+					ltks.db.profile.kssound[3] = v
 				end
 			},
 			kssound4 = {
@@ -1312,10 +1335,10 @@ local function giveSoundFileSetup()
 				desc = 'Choose a sound file',
 				usage = "End the name of a sound file",
 				get = function()
-					return dgks.db.profile.kssound[4]
+					return ltks.db.profile.kssound[4]
 				end,
 				set = function(info, v)
-					dgks.db.profile.kssound[4] = v
+					ltks.db.profile.kssound[4] = v
 				end
 			},
 			kssound5 = {
@@ -1324,10 +1347,10 @@ local function giveSoundFileSetup()
 				desc = 'Choose a sound file',
 				usage = "End the name of a sound file",
 				get = function()
-					return dgks.db.profile.kssound[5]
+					return ltks.db.profile.kssound[5]
 				end,
 				set = function(info, v)
-					dgks.db.profile.kssound[5] = v
+					ltks.db.profile.kssound[5] = v
 				end
 			},
 			kssound6 = {
@@ -1336,10 +1359,10 @@ local function giveSoundFileSetup()
 				desc = 'Choose a sound file',
 				usage = "End the name of a sound file",
 				get = function()
-					return dgks.db.profile.kssound[6]
+					return ltks.db.profile.kssound[6]
 				end,
 				set = function(info, v)
-					dgks.db.profile.kssound[6] = v
+					ltks.db.profile.kssound[6] = v
 				end
 			},
 			kssound7 = {
@@ -1348,10 +1371,10 @@ local function giveSoundFileSetup()
 				desc = 'Choose a sound file',
 				usage = "End the name of a sound file",
 				get = function()
-					return dgks.db.profile.kssound[7]
+					return ltks.db.profile.kssound[7]
 				end,
 				set = function(info, v)
-					dgks.db.profile.kssound[7] = v
+					ltks.db.profile.kssound[7] = v
 				end
 			},
 			prepare = {
@@ -1360,10 +1383,10 @@ local function giveSoundFileSetup()
 				desc = 'Choose a sound file',
 				usage = "Enter the name of the sound file",
 				get = function()
-					return dgks.db.profile.kssoundP
+					return ltks.db.profile.kssoundP
 				end,
 				set = function(info, v)
-					dgks.db.profile.kssoundP = v
+					ltks.db.profile.kssoundP = v
 				end
 			},
 			executesound = {
@@ -1372,10 +1395,10 @@ local function giveSoundFileSetup()
 				desc = 'Choose a sound file',
 				usage = "Enter the name of the sound file",
 				get = function()
-					return dgks.db.profile.kssoundE
+					return ltks.db.profile.kssoundE
 				end,
 				set = function(info, v)
-					dgks.db.profile.kssoundE = v
+					ltks.db.profile.kssoundE = v
 				end
 			}
 		}
@@ -1393,7 +1416,7 @@ local function giveOutput()
 				name = "You can select where you want dG Killshot Combat messages displayed from this screen.",
 				order = 0
 			},
-			sink = dgks:GetSinkAce3OptionsDataTable(),
+			sink = ltks:GetSinkAce3OptionsDataTable(),
 		}
 	}
 	-- hacks borrowed from Witch Hunt
@@ -1414,7 +1437,7 @@ local defaults = {
 		kstext = "$k killed $v!",
 		dueltext = "$k has defeated $v!",
 		soundpack = "male",
-		soundpath = "Interface\\AddOns\\dgks\\sounds\\",
+		soundpath = "Interface\\AddOns\\ltks\\sounds\\",
 		dotxtemote = false,
 		doemote = "none",
 		duelemotewin = "BOW",
@@ -1462,22 +1485,22 @@ local defaults = {
 	},
 }
 
-function dgks:OnInitialize()
+function ltks:OnInitialize()
 
 	-- Setup DB
-	self.db = DGKS.NewDB("dgksDB", defaults, true)
+	self.db = LibStub("AceDB-3.0"):New("dgksDB", defaults, true)
 
 	self:SetSinkStorage(self.db.profile)
 
 	-- Increment newestconfigversion to reset db to defaults when needed
-	if (dgks.db.profile.configversion < newestconfigversion ) then
-		dgks:Print("Config outdated, reverting to defaults.")
-		dgks.db:ResetProfile()
+	if (ltks.db.profile.configversion < newestconfigversion ) then
+		ltks:Print("Config outdated, reverting to defaults.")
+		ltks.db:ResetProfile()
 	end
 
-	if (addonName == "dgks_classic") then
+	if (addonName == "ltks_classic") then
 		SendSystemMessage("Please switch to dG Killshot, the classic specific version, dG Killshot Classic, is no longer getting updates.")
-		self.db.soundPath = "Interface\\AddOns\\dgks_classic\\sounds\\"
+		self.db.soundPath = "Interface\\AddOns\\ltks_classic\\sounds\\"
 	end
 
 	-- Setup Config Screens
@@ -1513,35 +1536,35 @@ function dgks:OnInitialize()
 			Settings.OpenToCategory("dG KillShot")
 		end
 	end
-	self:RegisterChatCommand("dgks", OpenSettings)
+	self:RegisterChatCommand("ltks", OpenSettings)
 	self:RegisterChatCommand("ks", OpenSettings)
 	
 	
 	-- Setup Comms
-	self:RegisterComm("dgks") --Killshots
-	self:RegisterComm("dgksV") --Version check
-	self:RegisterComm("dgksVR") --Version check responses
-	self:RegisterComm("dgksDUEL") --Duels
+	self:RegisterComm("ltks") --Killshots
+	self:RegisterComm("ltksV") --Version check
+	self:RegisterComm("ltksVR") --Version check responses
+	self:RegisterComm("ltksDUEL") --Duels
 end
 
-function dgks:SoundEventHandler(info, sound)
-	if (dgks.db.profile.dosound) then
+function ltks:SoundEventHandler(info, sound)
+	if (ltks.db.profile.dosound) then
 		if (tonumber(GetCVar("Sound_EnableAllSound") and GetCVar("Sound_EnableSFX")) == 1) then
 			--[===[@debug@
 				-- Dev Debugging functions
 				self.Print("DEBUG: Sound: " .. sound )
-				self.Print("DEBUG: Soundchannel: " .. dgks.db.profile.soundchannel )
+				self.Print("DEBUG: Soundchannel: " .. ltks.db.profile.soundchannel )
 			--@end-debug@]===]
-			PlaySoundFile(sound,dgks.db.profile.soundchannel)
+			PlaySoundFile(sound,ltks.db.profile.soundchannel)
 		end
 	end
 end
 
-function dgks:OnDisable()
+function ltks:OnDisable()
     -- Called when the addon is disabled
 end
 
-function dgks:CombatLogEventHandler(info, timestamp, event, hideCaster, sourceGUID, sourceName, sourceFlags, sourceFlags2, destGUID, destName, destFlags, destFlags2, ...)
+function ltks:CombatLogEventHandler(info, timestamp, event, hideCaster, sourceGUID, sourceName, sourceFlags, sourceFlags2, destGUID, destName, destFlags, destFlags2, ...)
 	
 	-- Example of player kill
 	-- 7/21 01:23:16.879  PARTY_KILL,Player-9-00064F35,"Ratchet-Kil'jaeden",0x511,0x0,Player-3676-09BED6E0,"Kruulmokthan-Area52",0x10548,0x0
@@ -1552,7 +1575,7 @@ function dgks:CombatLogEventHandler(info, timestamp, event, hideCaster, sourceGU
 	-- Remove Party Kill to test damageDealers table This maybe required to detect Feign Death
 	if event == "PARTY_KILL" then
 		if (destFlags == nil) then return end
-		if (bit.band(destFlags, COMBATLOG_OBJECT_TYPE_PLAYER) == COMBATLOG_OBJECT_TYPE_PLAYER) or dgks.db.profile.dopve then
+		if (bit.band(destFlags, COMBATLOG_OBJECT_TYPE_PLAYER) == COMBATLOG_OBJECT_TYPE_PLAYER) or ltks.db.profile.dopve then
 			-- A unit has died to someone in our party
 				
 			if string.format("%s", sourceGUID) == string.format("%s", UnitGUID("player")) then
@@ -1563,8 +1586,9 @@ function dgks:CombatLogEventHandler(info, timestamp, event, hideCaster, sourceGU
 				self.Print("DEBUG: " .. "Sending "..destName.." and "..timestamp.." to KillshotTX." )
 				--@end-debug@]===]
 				
-				-- The player has landed a killshot
-				self:KillshotTX(destName, timestamp)
+				-- The player has landed a killshot - use full name with realm
+				local fullDestName = GetNameFromGUID(destGUID) or destName
+				self:KillshotTX(fullDestName, timestamp)
 			end
 		end
 	end
@@ -1573,19 +1597,22 @@ function dgks:CombatLogEventHandler(info, timestamp, event, hideCaster, sourceGU
 	if event == "UNIT_DIED" then
 		if destName == playerName then
 			-- Player has died
-			local myKiller = damageDealers[destName]			
+			local fullDestName = GetNameFromGUID(destGUID) or destName
+			local myKiller = damageDealers[fullDestName]			
 			self:PlayerDeath(myKiller)
 			-- Test is probably broken
-		elseif bit.band(destFlags, COMBATLOG_OBJECT_TYPE_PLAYER) == COMBATLOG_OBJECT_TYPE_PLAYER or dgks.db.profile.dopve or destName == "Test-Victim" then
-				if damageDealers[destName] == "PlayerPet" then
+		elseif bit.band(destFlags, COMBATLOG_OBJECT_TYPE_PLAYER) == COMBATLOG_OBJECT_TYPE_PLAYER or ltks.db.profile.dopve or destName == "Test-Victim" then
+				local fullDestName = GetNameFromGUID(destGUID) or destName
+					if damageDealers[fullDestName] == "PlayerPet" then
 				-- Last damage dealt to dead unit was from player
 				--[===[@debug@
 				-- Dev Debugging functions
 				self:Print("DEBUG: " .. UnitName("player") .. " has landed the kill.")
 				self:Print("DEBUG: " .. "Sending "..destName.." and "..timestamp.." to KillshotTX." )
 				--@end-debug@]===]
-				-- The player has landed a killshot,this detection method is fooled by Feign Death so we do PARTY_KILL ALSO
-				self:KillshotTX(destName, timestamp)
+				-- The player has landed a killshot,this detection method is fooled by Feign Death so we do PARTY_KILL ALSO - use full name with realm
+				local fullDestName = GetNameFromGUID(destGUID) or destName
+				self:KillshotTX(fullDestName, timestamp)
 			end
 		end
 	end
@@ -1595,37 +1622,42 @@ function dgks:CombatLogEventHandler(info, timestamp, event, hideCaster, sourceGU
 		-- This should log pets and creatures under players control to the player
 		-- This worked, but we need to superate pets -- if sourceName ~= playerName and bit.band(sourceFlags, COMBATLOG_OBJECT_AFFILIATION_MINE) > 0 then sourceName = playerName end
 		if sourceName ~= playerName and bit.band(sourceFlags, COMBATLOG_OBJECT_AFFILIATION_MINE) > 0 then sourceName = "PlayerPet" end
-		damageDealers[destName] = sourceName
+		-- Use full name with realm for damageDealers table
+
+		local fullDestName = GetNameFromGUID(destGUID) or destName
+
+		damageDealers[fullDestName] = sourceName
+
 		
 		-- Check for execute if enabled
-		if dgks.db.profile.doexecutesound or dgks.db.profile.doexecutesoundpve then
+		if ltks.db.profile.doexecutesound or ltks.db.profile.doexecutesoundpve then
 		--Only do execute if we have a target and they are hostile 
 			if GetFullUnitName("target") == destName then
 				-- This _DAMAGE event is for out target
 				if UnitIsEnemy("player","target") then 
 					-- This is an enemy
-					if bit.band(destFlags, COMBATLOG_OBJECT_TYPE_PLAYER) == COMBATLOG_OBJECT_TYPE_PLAYER or dgks.db.profile.doexecutesoundpve then
+					if bit.band(destFlags, COMBATLOG_OBJECT_TYPE_PLAYER) == COMBATLOG_OBJECT_TYPE_PLAYER or ltks.db.profile.doexecutesoundpve then
 						-- dest is a player or pve is enabled
 						local targetHealthPercent = floor(UnitHealth("target") / UnitHealthMax("target") * 100,0)
-						if targetHealthPercent <= dgks.db.profile.doexecutepercent and targetHealthPercent > 1 then
+						if targetHealthPercent <= ltks.db.profile.doexecutepercent and targetHealthPercent > 1 then
 							-- Target is under threshold
 							--[===[@debug@
 							-- Dev Debugging functions
-							--dgks:Print("DEBUG: " .. GetFullUnitName("target") .. " " .. destName .. " " .. targetHealthPercent)
+							--ltks:Print("DEBUG: " .. GetFullUnitName("target") .. " " .. destName .. " " .. targetHealthPercent)
 							--@end-debug@]===]
 							if targetList[GetFullUnitName("target")] == nil then
 								--First time we have seen this target in execute range
-								dgks:dgks_SoundPack(dgks.db.profile.kssoundE)
-							elseif targetList[GetFullUnitName("target")] <= dgks.db.profile.doexecutepercent then
+								ltks:ltks_SoundPack(ltks.db.profile.kssoundE)
+							elseif targetList[GetFullUnitName("target")] <= ltks.db.profile.doexecutepercent then
 								--Target was already under threshold don't spam
 							else
 								-- Target is now below threshhold play sound
-								dgks:dgks_SoundPack(dgks.db.profile.kssoundE)
+								ltks:ltks_SoundPack(ltks.db.profile.kssoundE)
 							end
 						end
 						--Store target health in table so we can filter repeat executes
 						targetList[GetFullUnitName("target")] = targetHealthPercent
-						--dgks:Print(targetList[GetFullUnitName("target")])
+						--ltks:Print(targetList[GetFullUnitName("target")])
 					end
 				end
 			end
@@ -1633,31 +1665,38 @@ function dgks:CombatLogEventHandler(info, timestamp, event, hideCaster, sourceGU
 	end 
 end
 
-function dgks:PartyKillHandler(attackerGUID, targetGUID)
-    local attackerStr = string.format("%s", attackerGUID)
-    local playerStr = string.format("%s", UnitGUID("player"))
-    if attackerStr ~= playerStr then return end
+function ltks:PartyKillHandler(attackerGUID, targetGUID)
+    -- In instanced PvP and other identity-restricted contexts (Midnight 12.0+),
+    -- PARTY_KILL's GUID payload arrives as secret strings. Tainted code cannot
+    -- compare, format, or inspect them (immediate Lua error), and there is no
+    -- identity data left to attribute the kill, so bail out instead of crashing.
+    if not attackerGUID or not targetGUID then return end
+    if issecretvalue and (issecretvalue(attackerGUID) or issecretvalue(targetGUID)) then return end
+    if attackerGUID ~= UnitGUID("player") then return end
     local targetName = GetNameFromGUID(targetGUID)
     if targetName then
-        local isPlayer = targetGUID and targetGUID:sub(1, 6) == "Player"
-        if isPlayer or dgks.db.profile.dopve then
+        local isPlayer = targetGUID:sub(1, 6) == "Player"
+        if isPlayer or ltks.db.profile.dopve then
             self:KillshotTX(targetName, GetTime())
         end
     end
 end
 
-function dgks:UnitDiedHandler(unitGUID)
-    local unitStr = string.format("%s", unitGUID)
-    local playerStr = string.format("%s", UnitGUID("player"))
-    if unitStr ~= playerStr then return end
-    self:PlayerDeath("Unknown Entity")
+-- UNIT_DIED carries a secret GUID when unit identity is restricted on Retail,
+-- so PLAYER_DEAD (no payload) is the death trigger. The killer name comes from
+-- the CLEUF damage tracker, which only records non-secret payloads; restricted
+-- contexts leave it nil and PlayerDeath falls back to "Unknown Entity".
+function ltks:PlayerDeadHandler()
+    local killer = lastDamageSource
+    lastDamageSource = nil
+    self:PlayerDeath(killer)
 end
 
-function dgks:KillshotTX(txvictim,txtimestamp)
+function ltks:KillshotTX(txvictim,txtimestamp)
 	-- Process the detect killshot
 	-- Increment killshot streak 
 	streak = streak + 1
-	dgks.db.profile.lastStreak = streak
+	ltks.db.profile.lastStreak = streak
 	-- Check and set multikill
 	if (lastkill + 10) > txtimestamp then
 		-- Ladies and Gentlemen we have a multikill
@@ -1675,11 +1714,11 @@ function dgks:KillshotTX(txvictim,txtimestamp)
 	deathstreak = 0
 	
 	-- Broadcast our Killshot
-	self:SendCM("dgks",dgks:Serialize(playerName,txvictim,txtimestamp,streak,multikill))
+	self:SendCM("ltks",ltks:Serialize(playerName,txvictim,txtimestamp,streak,multikill))
 	
 end
 
-function dgks:DuelTX(txvictim,txtimestamp)
+function ltks:DuelTX(txvictim,txtimestamp)
 	-- Process the detect killshot
 	-- Increment killshot streak 
 	streak = streak + 1
@@ -1688,27 +1727,27 @@ function dgks:DuelTX(txvictim,txtimestamp)
 	deathstreak = 0
 	
 	-- Broadcast our duel win
-	self:SendCM("dgksDUEL",dgks:Serialize(playerName,txvictim,txtimestamp,streak,multikill))
+	self:SendCM("ltksDUEL",ltks:Serialize(playerName,txvictim,txtimestamp,streak,multikill))
 end
 
-function dgks:PlayerLoss(myKiller)
+function ltks:PlayerLoss(myKiller)
 	streak = 0;
-	dgks.db.profile.lastStreak = 0;
+	ltks.db.profile.lastStreak = 0;
 	deathstreak = deathstreak + 1;
-	if (deathstreak > dgks.db.profile.maxdeathstreak) then dgks.db.profile.maxdeathstreak = deathstreak end
+	if (deathstreak > ltks.db.profile.maxdeathstreak) then ltks.db.profile.maxdeathstreak = deathstreak end
 	if (myKiller == nil) then myKiller = "Unknown Entity" end
 	-- Add to log
-    tinsert(dgks.db.profile.killlog, 1, "[" .. date() .. "]" .. " You were defeated by " .. myKiller .. ".")
+    tinsert(ltks.db.profile.killlog, 1, "[" .. date() .. "]" .. " You were defeated by " .. myKiller .. ".")
 	-- If log is too long prune it
-    if (dgks.db.profile.killlog[21]) then tremove(dgks.db.profile.killlog,21) end
+    if (ltks.db.profile.killlog[21]) then tremove(ltks.db.profile.killlog,21) end
 	-- Store in deathList
 	-- If deathList doesn't exist create it
-	if not dgks.db.profile.deathList[myKiller] then dgks.db.profile.deathList[myKiller] = {} end
-	tinsert(dgks.db.profile.deathList[myKiller], date("%m/%d/%y %H:%M:%S"))
-	if (dgks.db.profile.dochatbox) then dgks:Print("You been defeated by "..myKiller.." "..#dgks.db.profile.deathList[myKiller].." times.") end
-	if dgks.db.profile.doscreenshotonduelloss then Screenshot() end
-	if dgks.db.profile.duelemoteloss ~= "none" then
-		local emote = dgks.db.profile.duelemoteloss
+	if not ltks.db.profile.deathList[myKiller] then ltks.db.profile.deathList[myKiller] = {} end
+	tinsert(ltks.db.profile.deathList[myKiller], date("%m/%d/%y %H:%M:%S"))
+	if (ltks.db.profile.dochatbox) then ltks:Print("You been defeated by "..myKiller.." "..#ltks.db.profile.deathList[myKiller].." times.") end
+	if ltks.db.profile.doscreenshotonduelloss then Screenshot() end
+	if ltks.db.profile.duelemoteloss ~= "none" then
+		local emote = ltks.db.profile.duelemoteloss
 		if emote == "RANDOM" then
 			emote = randomEmotes[math.random(#randomEmotes)]
 		end
@@ -1716,16 +1755,16 @@ function dgks:PlayerLoss(myKiller)
 	end
 end
 
-function dgks:OnCommReceived(cchan, message, distribution, sender)
+function ltks:OnCommReceived(cchan, message, distribution, sender)
 	
 	--If broadcast type is off return
-	if not dgks.db.profile.dobroadcasts and sender ~= playerName then return end
+	if not ltks.db.profile.dobroadcasts and sender ~= playerName then return end
 	-- If Guild broadcast is off and we received a guild broadcast just return
-	if not dgks.db.profile.doguild and distribution == "GUILD" then return end
+	if not ltks.db.profile.doguild and distribution == "GUILD" then return end
 	-- If raid broadcast is off and we received a raid broadcast just return
-	if not dgks.db.profile.doraid and distribution == "RAID" then return end
-	if not dgks.db.profile.doraid and distribution == "PARTY" then return end
-	if not dgks.db.profile.doraid and distribution == "INSTANCE_CHAT" then return end
+	if not ltks.db.profile.doraid and distribution == "RAID" then return end
+	if not ltks.db.profile.doraid and distribution == "PARTY" then return end
+	if not ltks.db.profile.doraid and distribution == "INSTANCE_CHAT" then return end
 
 	local timestamp = time()
 	
@@ -1733,10 +1772,10 @@ function dgks:OnCommReceived(cchan, message, distribution, sender)
 	--[===[@debug@
 	self:Print("OnCommReceived: CChan= " .. cchan .. " " .. message .. distribution .. sender)
 	--@end-debug@]===]
-	if cchan == "dgksVR" then
+	if cchan == "ltksVR" then
 		if sender ~= playerName then self:Print(sender .. " is on version " .. message) end
 
-	elseif cchan == "dgksV" then
+	elseif cchan == "ltksV" then
 		-- Check for duplicates here
 		if sender == lastSender and message == lastMessage and timestamp == lastTimestamp then return end
 		-- Respond with our version
@@ -1747,11 +1786,11 @@ function dgks:OnCommReceived(cchan, message, distribution, sender)
 		--@end-debug@]===]
 
 		--This should always be a direct whisper
-		self:SendCommMessage("dgksVR",version,WHISPER,sender)
+		self:SendCommMessage("ltksVR",version,WHISPER,sender)
 
-	elseif cchan == "dgks" or cchan == "dgksDUEL" then
+	elseif cchan == "ltks" or cchan == "ltksDUEL" then
 		--Verify we have a valid event	
-		local ok,rxkiller,rxvictim,rxtimestamp,rxstreak,rxmultikill = dgks:Deserialize(message)
+		local ok,rxkiller,rxvictim,rxtimestamp,rxstreak,rxmultikill = ltks:Deserialize(message)
 		if not ok then return else
 		
 			-- Check for duplicates using recentKills table
@@ -1770,31 +1809,31 @@ function dgks:OnCommReceived(cchan, message, distribution, sender)
 			lastrxkiller, lastrxvictim, lastrxtimestamp = rxkiller, rxvictim, rxtimestamp
 		
 			-- Generate Text
-			if cchan == "dgks" then 
-				killshottext = string.gsub(string.gsub(dgks.db.profile.kstext, "$k", rxkiller), "$v", rxvictim)
+			if cchan == "ltks" then 
+				killshottext = string.gsub(string.gsub(ltks.db.profile.kstext, "$k", rxkiller), "$v", rxvictim)
 				-- Killshot Emotes
-				if (dgks.db.profile.dotxtemote and playerName == rxkiller) then
-					emotestring=string.gsub(string.gsub(dgks.db.profile.ksemote, "$v", rxvictim), "$s", streak)
+				if (ltks.db.profile.dotxtemote and playerName == rxkiller) then
+					emotestring=string.gsub(string.gsub(ltks.db.profile.ksemote, "$v", rxvictim), "$s", rxstreak)
 					SendChatMessage(emotestring, "EMOTE")
 				end
-				if (dgks.db.profile.doemote ~= "none" and playerName == rxkiller) then
+				if (ltks.db.profile.doemote ~= "none" and playerName == rxkiller) then
 					-- fixme targeting doesn't seem to work with NPCs
-					local emote = dgks.db.profile.doemote
+					local emote = ltks.db.profile.doemote
 					if emote == "RANDOM" then
 						emote = randomEmotes[math.random(#randomEmotes)]
 					end
 					DoEmote(emote, rxvictim)
 				end
 			else
-				killshottext = string.gsub(string.gsub(dgks.db.profile.dueltext, "$k", rxkiller), "$v", rxvictim)
+				killshottext = string.gsub(string.gsub(ltks.db.profile.dueltext, "$k", rxkiller), "$v", rxvictim)
 				--Duel Emotes
-			if (dgks.db.profile.dueltxtemote and playerName == rxkiller) then
-				emotestring=string.gsub(string.gsub(dgks.db.profile.duelcustomemote, "$v", rxvictim), "$s", streak)
+			if (ltks.db.profile.dueltxtemote and playerName == rxkiller) then
+				emotestring=string.gsub(string.gsub(ltks.db.profile.duelcustomemote, "$v", rxvictim), "$s", rxstreak)
 				SendChatMessage(emotestring, "EMOTE")
 			end
-			if (dgks.db.profile.duelemotewin ~= "none" and playerName == rxkiller) then
+			if (ltks.db.profile.duelemotewin ~= "none" and playerName == rxkiller) then
 				-- fixme targeting doesn't seem to work with NPCs
-				local emote = dgks.db.profile.duelemotewin
+				local emote = ltks.db.profile.duelemotewin
 				if emote == "RANDOM" then
 					emote = randomEmotes[math.random(#randomEmotes)]
 				end
@@ -1808,9 +1847,9 @@ function dgks:OnCommReceived(cchan, message, distribution, sender)
 			-- Process multikill and play appropiate sound and text
 			if rxmultikill > 0 then
 				self:ScrollText(rxkiller .. " got a " .. self.db.profile.kstextM[rxmultikill] .. "!")
-				self:dgks_SoundPack(self.db.profile.kssoundM[rxmultikill])
+				self:ltks_SoundPack(self.db.profile.kssoundM[rxmultikill])
 			else
-				self:dgks_SoundPack(dgks:GetKillshotSound(rxstreak))
+				self:ltks_SoundPack(ltks:GetKillshotSound(rxstreak))
 			end
 
 			-- We have landed a kill
@@ -1818,23 +1857,23 @@ function dgks:OnCommReceived(cchan, message, distribution, sender)
 				local setMaxStreak = false
 				
 				-- Increment maxstreak if this is a record high
-				if ( streak > dgks.db.profile.maxstreak ) then 
-					dgks.db.profile.maxstreak = streak
+				if ( streak > ltks.db.profile.maxstreak ) then 
+					ltks.db.profile.maxstreak = streak
 					setMaxStreak = true
 				end
 						
 				-- This now triggers a global cool and most likely cannot work anymore
-				-- if dgks.db.profile.dopet then C_PetJournal.SummonRandomPet(allPets) end
+				-- if ltks.db.profile.dopet then C_PetJournal.SummonRandomPet(allPets) end
 				
-				if dgks.db.profile.doscreenshotonkill then Screenshot()
-				elseif dgks.db.profile.doscreenshotonstreak and setMaxStreak then Screenshot()
-				elseif dgks.db.profile.doscreenshotonmultikill and rxmultikill > 0 then Screenshot() end
+				if ltks.db.profile.doscreenshotonkill then Screenshot()
+				elseif ltks.db.profile.doscreenshotonstreak and setMaxStreak then Screenshot()
+				elseif ltks.db.profile.doscreenshotonmultikill and rxmultikill > 0 then Screenshot() end
 				
 				-- Store in killList
-				if not dgks.db.profile.killList[rxvictim] then dgks.db.profile.killList[rxvictim] = {} end
-				tinsert(dgks.db.profile.killList[rxvictim], date("%m/%d/%y %H:%M:%S"))
+				if not ltks.db.profile.killList[rxvictim] then ltks.db.profile.killList[rxvictim] = {} end
+				tinsert(ltks.db.profile.killList[rxvictim], date("%m/%d/%y %H:%M:%S"))
 				--fixme this count my be inaccurate due to the way lua handles tables without numeric index
-				if (dgks.db.profile.dochatbox) then dgks:Print("You have killed "..rxvictim.." "..#dgks.db.profile.killList[rxvictim].." times.") end
+				if (ltks.db.profile.dochatbox) then ltks:Print("You have killed "..rxvictim.." "..#ltks.db.profile.killList[rxvictim].." times.") end
 			end
 		end
 	end
@@ -1844,114 +1883,114 @@ function dgks:OnCommReceived(cchan, message, distribution, sender)
 
 end
 
-function dgks:PlayerDeath(myKiller)
+function ltks:PlayerDeath(myKiller)
 	streak = 0;
-	dgks.db.profile.lastStreak = 0;
+	ltks.db.profile.lastStreak = 0;
 	deathstreak = deathstreak + 1;
-	if (deathstreak > dgks.db.profile.maxdeathstreak) then dgks.db.profile.maxdeathstreak = deathstreak end
+	if (deathstreak > ltks.db.profile.maxdeathstreak) then ltks.db.profile.maxdeathstreak = deathstreak end
 	if (myKiller == nil) then myKiller = "Unknown Entity" end
 	-- Add to log
-    tinsert(dgks.db.profile.killlog, 1, "[" .. date() .. "]" .. " You were killed by " .. myKiller .. ".")
+    tinsert(ltks.db.profile.killlog, 1, "[" .. date() .. "]" .. " You were killed by " .. myKiller .. ".")
 	-- If log is too long prune it
-    if (dgks.db.profile.killlog[21]) then tremove(dgks.db.profile.killlog,21) end
+    if (ltks.db.profile.killlog[21]) then tremove(ltks.db.profile.killlog,21) end
 	-- Store in deathList
 	-- If deathList doesn't exist create it
-	if not dgks.db.profile.deathList[myKiller] then dgks.db.profile.deathList[myKiller] = {} end
-	tinsert(dgks.db.profile.deathList[myKiller], date("%m/%d/%y %H:%M:%S"))
-	if (dgks.db.profile.dochatbox) then dgks:Print("You been murdered by "..myKiller.." "..#dgks.db.profile.deathList[myKiller].." times.") end
-	if dgks.db.profile.doscreenshotondeath then Screenshot() end
+	if not ltks.db.profile.deathList[myKiller] then ltks.db.profile.deathList[myKiller] = {} end
+	tinsert(ltks.db.profile.deathList[myKiller], date("%m/%d/%y %H:%M:%S"))
+	if (ltks.db.profile.dochatbox) then ltks:Print("You been murdered by "..myKiller.." "..#ltks.db.profile.deathList[myKiller].." times.") end
+	if ltks.db.profile.doscreenshotondeath then Screenshot() end
 end
 
-function dgks:GetKillshotSound(streak)
-	if (dgks.db.profile.style == "dota") then
+function ltks:GetKillshotSound(streak)
+	if (ltks.db.profile.style == "dota") then
 		-- DoTA Style
 		for x = 7, 0, -1 do
-			if (dgks.db.profile.ksrank[x] > 0) and (streak >= dgks.db.profile.ksrank[x]) then return dgks.db.profile.kssound[x]; end
+			if (ltks.db.profile.ksrank[x] > 0) and (streak >= ltks.db.profile.ksrank[x]) then return ltks.db.profile.kssound[x]; end
 		end
 	else
 		-- UT Style
-		if (streak == 1) then return dgks.db.profile.kssound[1]; end
-		if (streak %  dgks.db.profile.utrank == 0) then 
-			local uttmp = streak / dgks.db.profile.utrank
+		if (streak == 1) then return ltks.db.profile.kssound[1]; end
+		if (streak %  ltks.db.profile.utrank == 0) then 
+			local uttmp = streak / ltks.db.profile.utrank
 			if (uttmp > 7) then
-				return dgks.db.profile.kssound[7]
+				return ltks.db.profile.kssound[7]
 			else
-				return dgks.db.profile.kssound[uttmp]
+				return ltks.db.profile.kssound[uttmp]
 			end
 		else
 			return
 		end
 	end
     --If we get here the user has messed up their config we could build some sort of safety someday but for now we will just default to kssound1 FIXME
-	return dgks.db.profile.kssound[1];
+	return ltks.db.profile.kssound[1];
 end
 
-local dgks_ctFrame
-local dgks_ctActive = {}
+local ltks_ctFrame
+local ltks_ctActive = {}
 
-local function dgks_CT_OnUpdate(self, elapsed)
-	for i = #dgks_ctActive, 1, -1 do
-		local fs = dgks_ctActive[i]
+local function ltks_CT_OnUpdate(self, elapsed)
+	for i = #ltks_ctActive, 1, -1 do
+		local fs = ltks_ctActive[i]
 		fs.elapsed_total = (fs.elapsed_total or 0) + elapsed
 		local t = fs.elapsed_total
-		fs:SetPoint("CENTER", dgks_ctFrame, "CENTER", 0, 60 * t)
+		fs:SetPoint("CENTER", ltks_ctFrame, "CENTER", 0, 60 * t)
 		if t > 1.5 then
 			fs:SetAlpha(max(0, 1 - (t - 1.5)))
 		end
 		if t > 2.5 then
 			fs:Hide()
 			fs:SetParent(nil)
-			tremove(dgks_ctActive, i)
+			tremove(ltks_ctActive, i)
 		end
 	end
-	if #dgks_ctActive == 0 then
+	if #ltks_ctActive == 0 then
 		self:SetScript("OnUpdate", nil)
 	end
 end
 
-local function dgks_ShowScrollText(msg, r, g, b)
-	if not dgks_ctFrame then
-		dgks_ctFrame = CreateFrame("Frame", "dgksCombatText", UIParent)
-		dgks_ctFrame:SetSize(1, 1)
-		dgks_ctFrame:SetPoint("CENTER", 0, -120)
-		dgks_ctFrame:SetFrameStrata("HIGH")
+local function ltks_ShowScrollText(msg, r, g, b)
+	if not ltks_ctFrame then
+		ltks_ctFrame = CreateFrame("Frame", "ltksCombatText", UIParent)
+		ltks_ctFrame:SetSize(1, 1)
+		ltks_ctFrame:SetPoint("CENTER", 0, -120)
+		ltks_ctFrame:SetFrameStrata("HIGH")
 	end
-	local fs = dgks_ctFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+	local fs = ltks_ctFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
 	fs:SetText(msg)
 	fs:SetTextColor(r or 1, g or 0.1, b or 0.1)
-	fs:SetPoint("CENTER", dgks_ctFrame, "CENTER", 0, 0)
+	fs:SetPoint("CENTER", ltks_ctFrame, "CENTER", 0, 0)
 	fs.elapsed_total = 0
-	tinsert(dgks_ctActive, fs)
-	dgks_ctFrame:SetScript("OnUpdate", dgks_CT_OnUpdate)
+	tinsert(ltks_ctActive, fs)
+	ltks_ctFrame:SetScript("OnUpdate", ltks_CT_OnUpdate)
 end
 
-function dgks:ScrollText(msg)
+function ltks:ScrollText(msg)
 	
-	tinsert(dgks.db.profile.killlog, 1, "[" .. date() .. "] " .. msg)
-	if (dgks.db.profile.killlog[21]) then tremove(dgks.db.profile.killlog,21) end
+	tinsert(ltks.db.profile.killlog, 1, "[" .. date() .. "] " .. msg)
+	if (ltks.db.profile.killlog[21]) then tremove(ltks.db.profile.killlog,21) end
 	
-	if (dgks.db.profile.docombattext) then
-		dgks_ShowScrollText(msg, 1.0, 0.1, 0.1)
+	if (ltks.db.profile.docombattext) then
+		ltks_ShowScrollText(msg, 1.0, 0.1, 0.1)
 	end
 end
 
 -- FIXME Entire version checking needs cleanup for duplicate sends
-function dgks:VersionCheck()
-    self:SendCM("dgksV",version)
+function ltks:VersionCheck()
+    self:SendCM("ltksV",version)
 end
 
-function dgks:dgks_SoundPack(sound)
+function ltks:ltks_SoundPack(sound)
 	-- FIXME	
 	if not sound then sound = 1 end
     local soundfile = self.db.profile.soundpath .. sound
-    dgks:SoundEventHandler(nil, soundfile)
+    ltks:SoundEventHandler(nil, soundfile)
 end
 
-function dgks:getSoundPack()
+function ltks:getSoundPack()
     return self.db.profile.soundpack;
 end
 
-function dgks:setSoundPack(info, newsoundset)
+function ltks:setSoundPack(info, newsoundset)
     if (newsoundset == "male") then
         self.db.profile.soundpack = newsoundset
         self.db.profile.soundpath = soundPath
@@ -1965,28 +2004,28 @@ function dgks:setSoundPack(info, newsoundset)
 		self.db.profile.soundpack = newsoundset
 		self.db.profile.soundpath = soundPath .. "\\baby\\"
     else
-        dgks:Print("Error: That is not a valid option")
+        ltks:Print("Error: That is not a valid option")
     end
 end
 
-function dgks:getKillLog()
+function ltks:getKillLog()
 	local plog = ""
-	for _, v in ipairs(dgks.db.profile.killlog) do plog = plog .. v .. "\n" end
+	for _, v in ipairs(ltks.db.profile.killlog) do plog = plog .. v .. "\n" end
 	return plog
 end
 
-function dgks:SendCM(cchan,msg)
-	-- Example usage: self:SendCM("dgksDUEL",dgks:Serialize(playerName,txvictim,txtimestamp,streak,multikill)
+function ltks:SendCM(cchan,msg)
+	-- Example usage: self:SendCM("ltksDUEL",ltks:Serialize(playerName,txvictim,txtimestamp,streak,multikill)
 
 	-- Whisper to ourselves if broadcasts are off or guild is off or we are not in a guild
-	if not dgks.db.profile.dobroadcasts or not dgks.db.profile.doguild or not IsInGuild() then
+	if not ltks.db.profile.dobroadcasts or not ltks.db.profile.doguild or not IsInGuild() then
 		--[===[@debug@
 		self:Print("Sending: CChan= " .. cchan .. " " .. msg .. " to WHISPER " .. playerName)
 		--@end-debug@]===]
 		self:SendCommMessage(cchan,msg,"WHISPER",playerName)
 	end
 
-	if dgks.db.profile.dobroadcasts then
+	if ltks.db.profile.dobroadcasts then
 
 		-- If not Retail, send to yell
 		-- https://wowpedia.fandom.com/wiki/WOW_PROJECT_ID
@@ -1998,7 +2037,7 @@ function dgks:SendCM(cchan,msg)
 
 		end
 
-		if dgks.db.profile.doguild and IsInGuild() then
+		if ltks.db.profile.doguild and IsInGuild() then
 			self:SendCommMessage(cchan,msg,"GUILD")
 			--[===[@debug@
 			self:Print("Sending: CChan= " .. cchan .. " " .. msg .. " to GUILD")
@@ -2007,7 +2046,7 @@ function dgks:SendCM(cchan,msg)
 		end
 
 		-- Send to Battleground / Arena	
-		if dgks.db.profile.dobg then
+		if ltks.db.profile.dobg then
 			if inBG or inArena then 
 				--[===[@debug@
 				self:Print("Sending: BG CChan= " .. cchan .. " " .. msg .. " to INSTANCE_CHAT")
@@ -2018,7 +2057,7 @@ function dgks:SendCM(cchan,msg)
 
 		-- Send to Raid
 		-- LFG style parties and raids use INSTANCE_CHAT
-		if dgks.db.profile.doraid then
+		if ltks.db.profile.doraid then
 			-- Raid/Party Broadcast on
 
 			--Standard Raid
@@ -2047,7 +2086,7 @@ function dgks:SendCM(cchan,msg)
 		end
 
 		--Whisper to friends
-		if dgks.db.profile.dofriends then
+		if ltks.db.profile.dofriends then
 			for i = 1, C_FriendList.GetNumFriends() do
 				local info = C_FriendList.GetFriendInfoByIndex(i)
 				if info and info.connected then
@@ -2098,7 +2137,7 @@ end
 
 --[===[@debug@
 -- Dev Debugging functions
-function dgks:Test()
+function ltks:Test()
 	-- Dev Debugging functions
 	self:Print("DEBUG: " .. "Sending KillShot Event...")
 	-- Example combat log entries
@@ -2113,7 +2152,7 @@ function dgks:Test()
 	self:CombatLogEventHandler(info,GetTime(),"UNIT_DIED",false,0000000000000000,nil,0x80000000,0x80000000,"Player-3676-09BED6E0","Test-Victim",0x10548,0x0)
 end
 
-function dgks:TestPlayerDeath()
+function ltks:TestPlayerDeath()
 	-- Example from combat log
 	-- Old 12/6 10:50:47.727  RANGE_DAMAGE,0x0300000006B14637,"Kumonu-Ner'zhul",0x10548,0x0,0x0300000000064F35,"Ratchet",0x511,0x0,75,"Auto Shot",0x1,10990,-1,1,0,0,0,nil,nil,nil
 	-- Old 12/6 10:50:48.308  UNIT_DIED,0x0000000000000000,nil,0x80000000,0x80000000,0x0300000000064F35,"Ratchet",0x511,0x0
@@ -2127,79 +2166,110 @@ end
 
 if IsRetail() then
 	function events:PARTY_KILL(attackerGUID, targetGUID)
-		dgks:PartyKillHandler(attackerGUID, targetGUID)
+		ltks:PartyKillHandler(attackerGUID, targetGUID)
 	end
 
-	function events:UNIT_DIED(unitGUID)
-		dgks:UnitDiedHandler(unitGUID)
-	end
+    function events:PLAYER_DEAD()
+        ltks:PlayerDeadHandler()
+    end
+
+    -- Track the last source of damage against the player so deaths can name a
+    -- killer. Midnight (12.0+) delivers secret payloads in restricted contexts
+    -- (instanced PvP, dungeons, raids); those are skipped and the death falls
+    -- back to "Unknown Entity" -- this is the last known damage source, not an
+    -- authoritative killer.
+    function events:COMBAT_LOG_EVENT_UNFILTERED(...)
+        local _, event, _, sourceGUID, sourceName, _, _, destGUID = CombatLogGetCurrentEventInfo()
+        if issecretvalue then
+            if (sourceGUID and issecretvalue(sourceGUID)) or (sourceName and issecretvalue(sourceName)) or (destGUID and issecretvalue(destGUID)) then return end
+        end
+        if destGUID ~= UnitGUID("player") then return end
+        if string.find(event, "_DAMAGE") then
+            lastDamageSource = sourceName
+        end
+    end
+
+    -- Leaving combat clears the killer tracker so a later out-of-combat death
+    -- (falling, drowning) is not attributed to a stale damage source, and is a
+    -- safe moment to retry CLEU registration if it was deferred.
+    function events:PLAYER_REGEN_ENABLED()
+        lastDamageSource = nil
+        TryRegisterCLEU()
+    end
 else
 	function events:COMBAT_LOG_EVENT_UNFILTERED(info, event, ...)
 		local timestamp, event, hideCaster, sourceGUID, sourceName, sourceFlags, sourceFlags2, destGUID, destName, destFlags, destFlags2 = CombatLogGetCurrentEventInfo()
-		dgks:CombatLogEventHandler(info, timestamp, event, hideCaster, sourceGUID, sourceName, sourceFlags, sourceFlags2, destGUID, destName, destFlags, destFlags2, ...)
+		ltks:CombatLogEventHandler(info, timestamp, event, hideCaster, sourceGUID, sourceName, sourceFlags, sourceFlags2, destGUID, destName, destFlags, destFlags2, ...)
 	end
 end
 
 function events:ZONE_CHANGED_NEW_AREA(info, event, ...)
-	
-	if (dgks.db.profile.dozonechange) then
+	TryRegisterCLEU()
+
+	if (ltks.db.profile.dozonechange) then
 		streak = 0
 		deathstreak = 0
-		dgks.db.profile.lastStreak = 0
+		ltks.db.profile.lastStreak = 0
 	end
 
 	-- Check for Arena and Battleground
 	if IsActiveBattlefieldArena() ~=nil then inArena = true else inArena = false end
 	if UnitInBattleground("player") ~= nil then inBG = true else inBG = false end
 
-	--if (dgks.db.profile.dopreparesound) then
+	--if (ltks.db.profile.dopreparesound) then
 		--local junk
 		--junk, inbg = IsInInstance()
 		--if inbg == "pvp" or IsActiveBattlefieldArena() then
-			--fixme dgks:dgks_SoundPack(dgks.db.profile.kssoundP)
+			--fixme ltks:ltks_SoundPack(ltks.db.profile.kssoundP)
 		--end
 	--end
 end
 
 function events:CHAT_MSG_BG_SYSTEM_NEUTRAL(msg, ...)
+	-- Midnight (12.0+) delivers chat messages as secret strings in restricted
+	-- contexts (dungeons, raids, PvP matches); they cannot be compared or parsed.
+	if issecretvalue and issecretvalue(msg) then return end
 	-- Prepare for Battleground
-	if (dgks.db.profile.dopreparesound) then
-		if msg == "The battle begins in 30 seconds!" then dgks:dgks_SoundPack(dgks.db.profile.kssoundP) end
+	if (ltks.db.profile.dopreparesound) then
+		if msg == "The battle begins in 30 seconds!" then ltks:ltks_SoundPack(ltks.db.profile.kssoundP) end
 	end
 end
 
 function events:CHAT_MSG_SYSTEM(msg, ...)
+	-- Midnight (12.0+) delivers chat messages as secret strings in restricted
+	-- contexts (dungeons, raids, PvP matches); they cannot be compared or parsed.
+	if issecretvalue and issecretvalue(msg) then return end
 	-- Prepare for Duel
-	if (dgks.db.profile.dopreparesound) then
-		if msg == format(DUEL_COUNTDOWN,3) then dgks:dgks_SoundPack(dgks.db.profile.kssoundP) end
+	if (ltks.db.profile.dopreparesound) then
+		if msg == format(DUEL_COUNTDOWN,3) then ltks:ltks_SoundPack(ltks.db.profile.kssoundP) end
 	end
 	-- Player fled from Duel
 	if strmatch(msg, format(DUEL_WINNER_RETREAT, "(.-%--.-)", playerName)) then
-		if dgks.db.profile.duelhumiliation then dgks:dgks_SoundPack(dgks.db.profile.kssoundH) end
+		if ltks.db.profile.duelhumiliation then ltks:ltks_SoundPack(ltks.db.profile.kssoundH) end
 		opponent = strmatch(msg, format(DUEL_WINNER_RETREAT, "(.-%--.-)", playerName))
 		self:PlayerLoss(opponent)
 	--fixme should probably create new msgs for duels in the future
 	-- Opponent fled from Duel
 	elseif strmatch(msg, format(DUEL_WINNER_RETREAT, playerName, "(.-%--.-)")) then
 		opponent = strmatch(msg, format(DUEL_WINNER_RETREAT, playerName, "(.-%--.-)"))
-		dgks:DuelTX(opponent,GetTime())
+		ltks:DuelTX(opponent,GetTime())
 	-- Won Duel
 	elseif strmatch(msg, format(DUEL_WINNER_KNOCKOUT, playerName, "(.-%--.-)")) then
 		opponent = strmatch(msg, format(DUEL_WINNER_KNOCKOUT, playerName, "(.-%--.-)"))
-		dgks:DuelTX(opponent,GetTime())
+		ltks:DuelTX(opponent,GetTime())
 	-- Lost Duel
 	elseif strmatch(msg, format(DUEL_WINNER_KNOCKOUT, "(.-%--.-)", playerName)) then
 		opponent = strmatch(msg, format(DUEL_WINNER_KNOCKOUT, "(.-%--.-)", playerName))
-		dgks:PlayerLoss(opponent,GetTime())
+		ltks:PlayerLoss(opponent,GetTime())
 	else
 		--[===[@debug@
 		-- Dev Debugging functions
-		--dgks:Print("DEBUG: " .. msg)
+		--ltks:Print("DEBUG: " .. msg)
 		--@end-debug@]===]
 	end
 end
 
-function dgks:OnEnable()
+function ltks:OnEnable()
 	--self:RegisterEvent("CHAT_MSG_ADDON", "AddonMessageHandler")
 	--OnEvent runs the function events:event
 	frame:SetScript("OnEvent", function(self, event, ...)
@@ -2207,10 +2277,15 @@ function dgks:OnEnable()
 	end);
 	--Regeister all events with function events:event
 	for k, v in pairs(events) do
-		frame:RegisterEvent(k);
+		-- CLEU is registered separately: Midnight forbids registering it while
+		-- addon restrictions are active (ADDON_ACTION_FORBIDDEN)
+		if k ~= "COMBAT_LOG_EVENT_UNFILTERED" or not IsRetail() then
+			frame:RegisterEvent(k);
+		end
 	end
+	TryRegisterCLEU()
 	--self:SetSinkStorage(self.db.profile)
-	--Check if this is dgks_classic, if so print warning and set path correctly
-	streak = dgks.db.profile.lastStreak or 0
+	--Check if this is ltks_classic, if so print warning and set path correctly
+	streak = ltks.db.profile.lastStreak or 0
 	deathstreak = 0
 end

@@ -1,0 +1,28 @@
+## Interface: 11508, 20505, 30405, 38000, 40402, 50500, 50503, 50500, 110002, 110207, 120000, 120007, 120100
+## Title: lT KillShot
+## Notes: Lets people know you got a killshot.
+## Author: Lance Inman 
+## Version: 12.1.0 
+## OptionalDeps: Ace3, LibSink-2.0
+## SavedVariables: dgksDB
+## SavedVariablesPerCharacter: dgksDBPC
+## X-Embeds: Ace3, LibSink-2.0
+## X-Website: http://www.wowace.com
+## X-Category: Interface Enhancements
+## X-Curse-Project-ID: 14980
+
+#@no-lib-strip@
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
+Libs\AceAddon-3.0\AceAddon-3.0.xml
+Libs\AceGUI-3.0\AceGUI-3.0.xml
+libs\AceEvent-3.0\AceEvent-3.0.xml
+Libs\AceConfig-3.0\AceConfig-3.0.xml
+Libs\AceConsole-3.0\AceConsole-3.0.xml
+Libs\AceDB-3.0\AceDB-3.0.xml
+Libs\AceComm-3.0\AceComm-3.0.xml
+Libs\AceSerializer-3.0\AceSerializer-3.0.xml
+Libs\LibSink-2.0\LibSink-2.0\lib.xml
+#@end-no-lib-strip@
+ltks_emotes.lua [AllowLoadGameType classic, vanilla, tbc, cata, mists]
+ltks.lua
