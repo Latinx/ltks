@@ -1894,7 +1894,10 @@ function ltks:PlayerDeath(myKiller)
 	ltks.db.profile.lastStreak = 0;
 	deathstreak = deathstreak + 1;
 	if (deathstreak > ltks.db.profile.maxdeathstreak) then ltks.db.profile.maxdeathstreak = deathstreak end
-	if (myKiller == nil) then myKiller = "Unknown Entity" end
+	-- Remember whether the killer is unidentified (fall, environmental damage,
+	-- or a restricted context) so the death is recorded but not announced.
+	local isUnknownKiller = (myKiller == nil)
+	if (isUnknownKiller) then myKiller = "Unknown Entity" end
 	-- Add to log
     tinsert(ltks.db.profile.killlog, 1, "[" .. date() .. "]" .. " You were killed by " .. myKiller .. ".")
 	-- If log is too long prune it
@@ -1903,7 +1906,7 @@ function ltks:PlayerDeath(myKiller)
 	-- If deathList doesn't exist create it
 	if not ltks.db.profile.deathList[myKiller] then ltks.db.profile.deathList[myKiller] = {} end
 	tinsert(ltks.db.profile.deathList[myKiller], date("%m/%d/%y %H:%M:%S"))
-	if (ltks.db.profile.dochatbox) then ltks:Print("You been murdered by "..myKiller.." "..#ltks.db.profile.deathList[myKiller].." times.") end
+	if (ltks.db.profile.dochatbox and not isUnknownKiller) then ltks:Print("You been murdered by "..myKiller.." "..#ltks.db.profile.deathList[myKiller].." times.") end
 	if ltks.db.profile.doscreenshotondeath then Screenshot() end
 end
 
