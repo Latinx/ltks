@@ -1,5 +1,5 @@
 ## Interface: 11508, 20505, 30405, 38000, 40402, 50500, 50503, 50500, 110002, 110207, 120000, 120007, 120100
-## Title: lT KillShot
+## Title: LT KillShot
 ## Notes: Lets people know you got a killshot.
 ## Author: Lance Inman 
 ## Version: 12.1.0 
