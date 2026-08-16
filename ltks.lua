@@ -1487,8 +1487,14 @@ local defaults = {
 
 function ltks:OnInitialize()
 
+	-- Migrate legacy saved variables (pre-rename era): the client creates the
+	-- new ltksDB global empty, so copy the old data over once if present.
+	if (not ltksDB or not next(ltksDB)) and dgksDB and next(dgksDB) then
+		ltksDB = dgksDB
+	end
+
 	-- Setup DB
-	self.db = LibStub("AceDB-3.0"):New("dgksDB", defaults, true)
+	self.db = LibStub("AceDB-3.0"):New("ltksDB", defaults, true)
 
 	self:SetSinkStorage(self.db.profile)
 
