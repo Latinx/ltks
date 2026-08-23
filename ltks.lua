@@ -26,6 +26,7 @@ local timestamp = 0
 -- PLAYER_DEAD. Only populated from non-secret combat log payloads (Midnight
 -- restricts identity in instanced PvP, dungeons and raids).
 local lastDamageSource = nil
+local mkChain = false -- multikill chain active (combat window mode)
 local newestconfigversion = 1
 local frame, events = CreateFrame("Frame"), {};
 local damageDealers = {}
@@ -261,6 +262,23 @@ local function giveGeneral()
 					ut = "Every " .. ltks.db.profile.utrank .. " Killshots (Unreal Tournament Style)"
 				},
 				order = 10,
+				width = 2
+			},
+			mkwindow = {
+				type = 'select',
+				name = 'Multikill Window',
+				desc = 'How long a multikill chain stays alive: a fixed 10 second window, or until you leave combat.',
+				values = {
+					timer = "10 second window",
+					combat = "Until out of combat"
+				},
+				get = function()
+					return ltks.db.profile.mkwindow
+				end,
+				set = function(info, b)
+					ltks.db.profile.mkwindow = b
+				end,
+				order = 11,
 				width = 2
 			},
 			dopreparesound = {
@@ -1467,6 +1485,7 @@ local defaults = {
 		doexecutepercent = 25,
 		dochatbox = true,
 		utrank = 3,
+		mkwindow = "timer",
 		ksrank = {1, 2, 4, 6, 8, 10, 12},
 		kssound = {"ownage.ogg", "killingspree.ogg", "rampage.ogg", "dominating.ogg", "unstoppable.ogg", "godlike.ogg", "whickedsick.ogg"},
 		kssoundM = {"doublekill.ogg", "multikill.ogg", "megakill.ogg", "ultrakill.ogg", "monsterkill.ogg", "ludicrouskill.ogg", "holyshit.ogg"},
@@ -1704,7 +1723,17 @@ function ltks:KillshotTX(txvictim,txtimestamp)
 	streak = streak + 1
 	ltks.db.profile.lastStreak = streak
 	-- Check and set multikill
-	if (lastkill + 10) > txtimestamp then
+	if (ltks.db.profile.mkwindow == "combat") then
+		-- Chain persists until combat ends (reset by PLAYER_REGEN_ENABLED)
+		if mkChain then
+			multikill = multikill + 1;
+		else
+			multikill = 0;
+			mkChain = true;
+		end
+		-- This most like will never be used except in test mode, but lets prevent the error anyways
+		if (multikill > #self.db.profile.kstextM) then multikill = #self.db.profile.kstextM end
+	elseif (lastkill + 10) > txtimestamp then
 		-- Ladies and Gentlemen we have a multikill
 		multikill = multikill + 1;
 		-- This most like will never be used except in test mode, but lets prevent the error anyways
@@ -2174,6 +2203,20 @@ end
 --@end-debug@]===]
 
 if IsRetail() then
+-- Combat state: resets the multikill chain and the killer tracker. Defined for
+-- both clients so the "until out of combat" multikill window works everywhere.
+function events:PLAYER_REGEN_DISABLED()
+    mkChain = false
+    multikill = 0
+end
+
+function events:PLAYER_REGEN_ENABLED()
+    mkChain = false
+    multikill = 0
+    lastDamageSource = nil
+    TryRegisterCLEU()
+end
+
 	function events:PARTY_KILL(attackerGUID, targetGUID)
 		ltks:PartyKillHandler(attackerGUID, targetGUID)
 	end
@@ -2198,13 +2241,6 @@ if IsRetail() then
         end
     end
 
-    -- Leaving combat clears the killer tracker so a later out-of-combat death
-    -- (falling, drowning) is not attributed to a stale damage source, and is a
-    -- safe moment to retry CLEU registration if it was deferred.
-    function events:PLAYER_REGEN_ENABLED()
-        lastDamageSource = nil
-        TryRegisterCLEU()
-    end
 else
 	function events:COMBAT_LOG_EVENT_UNFILTERED(info, event, ...)
 		local timestamp, event, hideCaster, sourceGUID, sourceName, sourceFlags, sourceFlags2, destGUID, destName, destFlags, destFlags2 = CombatLogGetCurrentEventInfo()
