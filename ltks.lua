@@ -259,7 +259,7 @@ local function giveGeneral()
 				end,
 				values = {
 					dota = "Every Killshot (DoTA/LoL Style)",
-					ut = "Every " .. ltks.db.profile.utrank .. " Killshots (Unreal Tournament Style)"
+					ut = "Unreal Tournament Announcer (plays on every consecutive kill)"
 				},
 				order = 10,
 				width = 2
@@ -1946,18 +1946,42 @@ function ltks:GetKillshotSound(streak)
 			if (ltks.db.profile.ksrank[x] > 0) and (streak >= ltks.db.profile.ksrank[x]) then return ltks.db.profile.kssound[x]; end
 		end
 	else
-		-- UT Style
-		if (streak == 1) then return ltks.db.profile.kssound[1]; end
-		if (streak %  ltks.db.profile.utrank == 0) then 
-			local uttmp = streak / ltks.db.profile.utrank
-			if (uttmp > 7) then
-				return ltks.db.profile.kssound[7]
-			else
-				return ltks.db.profile.kssound[uttmp]
-			end
-		else
-			return
-		end
+		-- UT Style: every consecutive kill plays the Unreal Tournament
+		-- announcer ladder (slot 4 = juggernaut; swap the filename to change it)
+		local utSounds = {
+			"headshot.ogg",        -- 1
+			"doublekill.ogg",      -- 2
+			"hattrick.ogg",        -- 3
+			"juggernaut.ogg",      -- 4
+			"multikill.ogg",       -- 5
+			"rampage.ogg",         -- 6
+			"killingspree.ogg",    -- 7
+			"dominating.ogg",      -- 8
+			"impressive.ogg",      -- 9
+			"unstoppable.ogg",     -- 10
+			"outstanding.ogg",     -- 11
+			"megakill.ogg",        -- 12
+			"ultrakill.ogg",       -- 13
+			"eagleeye.ogg",        -- 14
+			"ownage.ogg",          -- 15
+			"comboking.ogg",       -- 16
+			"maniac.ogg",          -- 17
+			"ludicrouskill.ogg",   -- 18
+			"bullseye.ogg",        -- 19
+			"excellent.ogg",       -- 20
+			"pancake.ogg",         -- 21
+			"headhunter.ogg",      -- 22
+			"unreal.ogg",          -- 23
+			"assasin.ogg",         -- 24
+			"whickedsick.ogg",     -- 25
+			"massacre.ogg",        -- 26
+			"killingmachine.ogg",  -- 27
+			"monsterkill.ogg",     -- 28
+			"holyshit.ogg",        -- 29
+			"godlike.ogg",         -- 30
+		}
+		if (streak > #utSounds) then return "godlike.ogg" end
+		return utSounds[streak]
 	end
     --If we get here the user has messed up their config we could build some sort of safety someday but for now we will just default to kssound1 FIXME
 	return ltks.db.profile.kssound[1];
