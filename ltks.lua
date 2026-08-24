@@ -1766,8 +1766,8 @@ function ltks:DuelTX(txvictim,txtimestamp)
 end
 
 function ltks:PlayerLoss(myKiller)
-	streak = 0;
-	ltks.db.profile.lastStreak = 0;
+	-- A duel loss is not a death: it no longer resets the kill streak. Only the
+	-- death streak is counted here.
 	deathstreak = deathstreak + 1;
 	if (deathstreak > ltks.db.profile.maxdeathstreak) then ltks.db.profile.maxdeathstreak = deathstreak end
 	if (myKiller == nil) then myKiller = "Unknown Entity" end
