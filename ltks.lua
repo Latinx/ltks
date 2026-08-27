@@ -29,7 +29,7 @@ local lastDamageSource = nil
 local mkChain = false -- multikill chain active (combat window mode)
 local myMinions = {} -- MINE-affiliated damage sources: pets, guardians, totems
 local deadNameCache = {} -- destGUID -> name from damage/death events (kill attribution)
-local pendingKill = nil -- retail: PARTY_KILL without a resolvable victim name, awaiting UNIT_DIED
+local pendingKills = {} -- retail: unresolved PARTY_KILL victims (guid -> {time}), awaiting UNIT_DIED
 local newestconfigversion = 1
 local frame, events = CreateFrame("Frame"), {};
 local damageDealers = {}
@@ -1752,16 +1752,17 @@ function ltks:PartyKillHandler(attackerGUID, targetGUID)
         end
     else
         -- Victim name not resolvable right now (off-target pet kill): park the
-        -- kill, resolve it when UNIT_DIED fires with the matching GUID, and
+        -- kill keyed by victim GUID (concurrent kills can't overwrite each
+        -- other), resolve it when UNIT_DIED fires with the matching GUID, and
         -- fall back to a short timeout so the streak/multikill never drops.
-        pendingKill = { guid = targetGUID, time = GetTime() }
+        pendingKills[targetGUID] = { time = GetTime() }
         C_Timer.After(2, function()
-            if pendingKill and pendingKill.guid == targetGUID then
-                local pk = pendingKill
-                pendingKill = nil
-                local name = deadNameCache[pk.guid] or GetNameFromGUID(pk.guid) or "Unknown"
-                if pk.guid:sub(1, 6) == "Player" or ltks.db.profile.dopve then
-                    ltks:KillshotTX(name, pk.time)
+            local rec = pendingKills[targetGUID]
+            if rec then
+                pendingKills[targetGUID] = nil
+                local name = deadNameCache[targetGUID] or GetNameFromGUID(targetGUID) or "Unknown"
+                if targetGUID:sub(1, 6) == "Player" or ltks.db.profile.dopve then
+                    ltks:KillshotTX(name, rec.time)
                 end
             end
         end)
@@ -2357,13 +2358,13 @@ end
 
 	function events:UNIT_DIED(unitGUID)
 		if issecretvalue and unitGUID and issecretvalue(unitGUID) then return end
-		ltks:Print("[LTKS-UD] guid=" .. tostring(unitGUID) .. " pending=" .. tostring(pendingKill and pendingKill.guid))
-		if pendingKill and unitGUID and unitGUID == pendingKill.guid then
-			local pk = pendingKill
-			pendingKill = nil
-			local name = deadNameCache[pk.guid] or GetNameFromGUID(pk.guid) or "Unknown"
-			if pk.guid:sub(1, 6) == "Player" or ltks.db.profile.dopve then
-				ltks:KillshotTX(name, pk.time)
+		ltks:Print("[LTKS-UD] guid=" .. tostring(unitGUID) .. " pending=" .. tostring(pendingKills[unitGUID] ~= nil))
+		local rec = pendingKills[unitGUID]
+		if rec then
+			pendingKills[unitGUID] = nil
+			local name = deadNameCache[unitGUID] or GetNameFromGUID(unitGUID) or "Unknown"
+			if unitGUID:sub(1, 6) == "Player" or ltks.db.profile.dopve then
+				ltks:KillshotTX(name, rec.time)
 			end
 		end
 	end
