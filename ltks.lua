@@ -61,9 +61,13 @@ local inArena = false
 local inBG = false
 local lastMessage, lastSender, lastTimestamp --Versionchecking duplicate detection
 local soundPath = "Interface\\AddOns\\ltks\\sounds\\"
--- Per-pack sound tables: multikill chain and streak tiers
+-- Per-pack sound tables: multikill chain follow-ups and per-kill base announcer
 local packChain = {
-	unreal2003 = { "firstblood.ogg", "doublekill.ogg", "multikill.ogg", "monsterkill.ogg", "holyshit.ogg" },
+	unreal2003 = { "doublekill.ogg", "multikill.ogg", "monsterkill.ogg", "holyshit.ogg" },
+	lol = { "doublekill.ogg", "triplekill.ogg", "quadrakill.ogg", "pentakill.ogg", "hexakill.ogg" },
+}
+local packLadder = {
+	unreal2003 = { "firstblood.ogg", "doublekill.ogg", "hattrick.ogg", "juggernaut.ogg", "godlike.ogg", "holyshit.ogg" },
 	lol = { "firstblood.ogg", "doublekill.ogg", "triplekill.ogg", "quadrakill.ogg", "pentakill.ogg", "hexakill.ogg" },
 }
 local packTiers = {
@@ -1489,7 +1493,7 @@ local defaults = {
 		kssoundM = {"firstblood.ogg", "doublekill.ogg", "multikill.ogg", "monsterkill.ogg", "holyshit.ogg"},
 		kssoundP = "prepare.ogg",
 		kssoundE = "finishhim.ogg",
-		kstextM = {"First Blood!", "Double Kill!", "Triple Kill!", "Quadra Kill!", "Penta Kill!", "Hexakill!"},
+		kstextM = {"Double Kill!", "Triple Kill!", "Quadra Kill!", "Penta Kill!", "Hexakill!"},
 		lastStreak = 0,
 		killlog = {},
 		damageDealers = {},
@@ -1734,7 +1738,7 @@ function ltks:KillshotTX(txvictim,txtimestamp)
 		if mkChain then
 			multikill = multikill + 1;
 		else
-			multikill = 1; -- First Blood starts the chain
+			multikill = 0; -- chain starts; base announcer plays instead
 			mkChain = true;
 		end
 		-- This most like will never be used except in test mode, but lets prevent the error anyways
@@ -1745,7 +1749,7 @@ function ltks:KillshotTX(txvictim,txtimestamp)
 		-- This most like will never be used except in test mode, but lets prevent the error anyways
 		if (multikill > #(packChain[ltks.db.profile.soundpack] or packChain.unreal2003)) then multikill = #(packChain[ltks.db.profile.soundpack] or packChain.unreal2003) end
 	else
-		multikill = 1; -- First Blood starts a new chain
+		multikill = 0; -- chain starts; base announcer plays instead
 	end
 	
 	-- New Multikill timer
@@ -1886,15 +1890,20 @@ function ltks:OnCommReceived(cchan, message, distribution, sender)
 			self:ScrollText(killshottext)
 			
 			-- Process multikill and play appropiate sound and text
-			-- Streak milestones (every 5 kills) override the chain sound
-			local tierSound = ltks:GetKillshotSound(rxstreak)
-			if tierSound then
-				self:ltks_SoundPack(tierSound)
-			elseif rxmultikill > 0 then
-				self:ScrollText(rxkiller .. " got a " .. self.db.profile.kstextM[rxmultikill] .. "!")
+			-- Priority: milestone tier > multikill chain > base announcer
+			local sound = ltks:GetKillshotSound(rxstreak)
+			if not sound and rxmultikill > 0 then
 				local chain = packChain[ltks.db.profile.soundpack] or packChain.unreal2003
-				self:ltks_SoundPack(chain[rxmultikill])
+				sound = chain[rxmultikill]
+				if sound then
+					self:ScrollText(rxkiller .. " got a " .. self.db.profile.kstextM[rxmultikill] .. "!")
+				end
 			end
+			if not sound then
+				local ladder = packLadder[ltks.db.profile.soundpack] or packLadder.unreal2003
+				sound = ladder[math.min(rxstreak, #ladder)]
+			end
+			if sound then self:ltks_SoundPack(sound) end
 
 			-- We have landed a kill
 			if playerName == rxkiller then
