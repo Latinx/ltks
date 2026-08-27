@@ -1722,6 +1722,7 @@ function ltks:CombatLogEventHandler(info, timestamp, event, hideCaster, sourceGU
 end
 
 function ltks:PartyKillHandler(attackerGUID, targetGUID)
+    ltks:Print("[LTKS-PK] attacker=" .. tostring(attackerGUID) .. " target=" .. tostring(targetGUID) .. " pet=" .. tostring(UnitGUID("pet")) .. " mine=" .. tostring(myMinions[attackerGUID] == true))
     -- In instanced PvP and other identity-restricted contexts (Midnight 12.0+),
     -- PARTY_KILL's GUID payload arrives as secret strings. Tainted code cannot
     -- compare, format, or inspect them (immediate Lua error), and there is no
@@ -2343,6 +2344,11 @@ end
                 and ownerGuid == playerGuid and unitGuid ~= playerGuid then
                 myMinions[unitGuid] = true
             end
+        end
+        if event == "UNIT_DIED" then
+            local dump = {}
+            for i = 1, n do dump[i] = tostring(info[i]) end
+            ltks:Print("[LTKS-DIE] src=" .. tostring(sourceGUID) .. " " .. tostring(sourceName) .. " flags=" .. tostring(sourceFlags) .. " dest=" .. tostring(destGUID) .. " payload=" .. table.concat(dump, "|"))
         end
         if destGUID ~= UnitGUID("player") then return end
         if string.find(event, "_DAMAGE") then
