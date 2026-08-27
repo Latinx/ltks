@@ -1757,13 +1757,9 @@ function ltks:KillshotTX(txvictim,txtimestamp)
 			multikill = 0; -- chain starts; base announcer plays instead
 			mkChain = true;
 		end
-		-- This most like will never be used except in test mode, but lets prevent the error anyways
-		if (multikill > #(packChain[ltks.db.profile.soundpack] or packChain.unreal2003)) then multikill = #(packChain[ltks.db.profile.soundpack] or packChain.unreal2003) end
 	elseif (lastkill + (ltks.db.profile.mktime or 10)) > txtimestamp then
 		-- Ladies and Gentlemen we have a multikill
 		multikill = multikill + 1;
-		-- This most like will never be used except in test mode, but lets prevent the error anyways
-		if (multikill > #(packChain[ltks.db.profile.soundpack] or packChain.unreal2003)) then multikill = #(packChain[ltks.db.profile.soundpack] or packChain.unreal2003) end
 	else
 		multikill = 0; -- chain starts; base announcer plays instead
 	end
