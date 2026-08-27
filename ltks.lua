@@ -267,9 +267,9 @@ local function giveGeneral()
 			mkwindow = {
 				type = 'select',
 				name = 'Multikill Window',
-				desc = 'How long a multikill chain stays alive: a fixed 10 second window, or until you leave combat.',
+				desc = 'How long a multikill chain stays alive: a fixed timer in seconds, or until you leave combat.',
 				values = {
-					timer = "10 second window",
+					timer = "Timer",
 					combat = "Until out of combat"
 				},
 				get = function()
@@ -279,6 +279,24 @@ local function giveGeneral()
 					ltks.db.profile.mkwindow = b
 				end,
 				order = 11,
+				width = 2
+			},
+			mktime = {
+				type = 'input',
+				name = 'Multikill Timer (seconds)',
+				desc = 'Seconds between kills that still counts as part of a multikill chain, when the window is set to Timer.',
+				get = function()
+					return tostring(ltks.db.profile.mktime)
+				end,
+				set = function(info, v)
+					local n = tonumber(v)
+					if n and n > 0 and n <= 3600 then
+						ltks.db.profile.mktime = n
+					else
+						ltks:Print("Enter a number between 1 and 3600 seconds.")
+					end
+				end,
+				order = 12,
 				width = 2
 			},
 			dopreparesound = {
@@ -574,10 +592,7 @@ local function giveGeneral()
 				get = "getSoundPack",
 				set = "setSoundPack",
 				values = {
-					male = "male",
-					female = "female",
-					sexy = "sexy",
-					baby = "baby"
+					unreal2003 = "Unreal 2003"
 				},
 				order = 85
 			},
@@ -1454,7 +1469,7 @@ local defaults = {
 		duelcustomemote = "has defended his honor against $v! Streak of $s!",
 		kstext = "$k killed $v!",
 		dueltext = "$k has defeated $v!",
-		soundpack = "male",
+		soundpack = "unreal2003",
 		soundpath = "Interface\\AddOns\\ltks\\sounds\\",
 		dotxtemote = false,
 		doemote = "none",
@@ -1486,6 +1501,7 @@ local defaults = {
 		dochatbox = true,
 		utrank = 3,
 		mkwindow = "timer",
+		mktime = 10,
 		ksrank = {1, 2, 4, 6, 8, 10, 12},
 		kssound = {"ownage.ogg", "killingspree.ogg", "rampage.ogg", "dominating.ogg", "unstoppable.ogg", "godlike.ogg", "whickedsick.ogg"},
 		kssoundM = {"doublekill.ogg", "multikill.ogg", "megakill.ogg", "ultrakill.ogg", "monsterkill.ogg", "ludicrouskill.ogg", "holyshit.ogg"},
@@ -1512,8 +1528,13 @@ function ltks:OnInitialize()
 		ltksDB = dgksDB
 	end
 
-	-- Setup DB
-	self.db = LibStub("AceDB-3.0"):New("ltksDB", defaults, true)
+	-- Migrate legacy sound pack paths (baby/female/sexy folders removed) to the
+	-- single Unreal 2003 pack at the sounds root.
+	local legacyPath = self.db.profile.soundpath or ""
+	if legacyPath:find("\\baby\\") or legacyPath:find("\\female\\") or legacyPath:find("\\sexy\\") then
+		self.db.profile.soundpath = soundPath
+		self.db.profile.soundpack = "unreal2003"
+	end
 
 	self:SetSinkStorage(self.db.profile)
 
@@ -1733,7 +1754,7 @@ function ltks:KillshotTX(txvictim,txtimestamp)
 		end
 		-- This most like will never be used except in test mode, but lets prevent the error anyways
 		if (multikill > #self.db.profile.kstextM) then multikill = #self.db.profile.kstextM end
-	elseif (lastkill + 10) > txtimestamp then
+	elseif (lastkill + (ltks.db.profile.mktime or 10)) > txtimestamp then
 		-- Ladies and Gentlemen we have a multikill
 		multikill = multikill + 1;
 		-- This most like will never be used except in test mode, but lets prevent the error anyways
@@ -2053,18 +2074,9 @@ function ltks:getSoundPack()
 end
 
 function ltks:setSoundPack(info, newsoundset)
-    if (newsoundset == "male") then
+    if (newsoundset == "unreal2003") then
         self.db.profile.soundpack = newsoundset
         self.db.profile.soundpath = soundPath
-    elseif (newsoundset == "female") then
-		self.db.profile.soundpack = newsoundset
-		self.db.profile.soundpath = soundPath .. "\\female\\"
-    elseif (newsoundset == "sexy") then
-		self.db.profile.soundpack = newsoundset
-		self.db.profile.soundpath = soundPath .. "\\sexy\\"
-    elseif (newsoundset == "baby") then
-		self.db.profile.soundpack = newsoundset
-		self.db.profile.soundpath = soundPath .. "\\baby\\"
     else
         ltks:Print("Error: That is not a valid option")
     end
