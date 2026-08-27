@@ -49,12 +49,16 @@ end
 local cleuRegistered = false
 local function TryRegisterCLEU()
 	if cleuRegistered or not IsRetail() then return end
-	if InCombatLockdown and InCombatLockdown() then return end
+	if InCombatLockdown and InCombatLockdown() then ltks:Print("[LTKS-CLEU] deferred: in combat"); return end
 	local _, instanceType = IsInInstance()
-	if instanceType then return end
-	if C_EventUtils and C_EventUtils.IsEventValid and not C_EventUtils.IsEventValid("COMBAT_LOG_EVENT_UNFILTERED") then return end
+	if instanceType then ltks:Print("[LTKS-CLEU] deferred: instance=" .. tostring(instanceType)); return end
+	if C_EventUtils and C_EventUtils.IsEventValid and not C_EventUtils.IsEventValid("COMBAT_LOG_EVENT_UNFILTERED") then
+		ltks:Print("[LTKS-CLEU] IsEventValid=false")
+		return
+	end
 	local ok, registered = pcall(frame.RegisterEvent, frame, "COMBAT_LOG_EVENT_UNFILTERED")
 	cleuRegistered = ok and registered ~= false
+	ltks:Print("[LTKS-CLEU] register ok=" .. tostring(ok) .. " registered=" .. tostring(registered) .. " -> " .. tostring(cleuRegistered))
 end
 local targetList = {} -- Used for Execute
 local playerName = UnitName("player")
@@ -2319,7 +2323,12 @@ end
     -- (instanced PvP, dungeons, raids); those are skipped and the death falls
     -- back to "Unknown Entity" -- this is the last known damage source, not an
     -- authoritative killer.
+    local cleuSeen = false
     function events:COMBAT_LOG_EVENT_UNFILTERED(...)
+        if not cleuSeen then
+            cleuSeen = true
+            ltks:Print("[LTKS-CLEU] handler live")
+        end
         -- Capture the full current combat log entry (standard fields + advanced
         -- payload) from the API itself, so owner-pair scanning never depends on
         -- how the event dispatcher forwards its arguments.
