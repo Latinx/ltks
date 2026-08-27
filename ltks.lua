@@ -1915,6 +1915,7 @@ function ltks:OnCommReceived(cchan, message, distribution, sender)
 				local ladder = packLadder[ltks.db.profile.soundpack] or packLadder.unreal2003
 				sound = ladder[rxstreak]
 			end
+			ltks:Print("[LTKS-RX] rxstreak=" .. tostring(rxstreak) .. " rxmk=" .. tostring(rxmultikill) .. " style=" .. tostring(ltks.db.profile.style) .. " pack=" .. tostring(ltks.db.profile.soundpack) .. " sound=" .. tostring(sound))
 			if sound and playerName == rxkiller then self:ltks_SoundPack(sound) end
 
 			-- We have landed a kill
@@ -1957,6 +1958,7 @@ end
 
 function ltks:PlayerDeath(myKiller)
 	streak = 0;
+	ltks:Print("[LTKS-DEATH] streak reset")
 	ltks.db.profile.lastStreak = 0;
 	deathstreak = deathstreak + 1;
 	if (deathstreak > ltks.db.profile.maxdeathstreak) then ltks.db.profile.maxdeathstreak = deathstreak end
