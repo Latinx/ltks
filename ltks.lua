@@ -300,42 +300,6 @@ local function giveGeneral()
 				order = 12,
 				width = 1
 			},
-			dopreparesound = {
-				type = 'toggle',
-				name = 'Play prepare sound when entering battlegrounds',
-				get = function()
-					return ltks.db.profile.dopreparesound
-				end,
-				set = function(info, b)
-					ltks.db.profile.dopreparesound = b
-				end,
-				width = "full",
-				order = 11
-			},
-			doexecutesound = {
-				type = 'toggle',
-				name = 'Play execute sound when Player target hits threshold',
-				get = function()
-					return ltks.db.profile.doexecutesound
-				end,
-				set = function(info, b)
-					ltks.db.profile.doexecutesound = b
-				end,
-				width = "full",
-				order = 12
-			},
-			doexecutesoundpve = {
-				type = 'toggle',
-				name = 'Play execute sound when NPC target hits threshold',
-				get = function()
-					return ltks.db.profile.doexecutesoundpve
-				end,
-				set = function(info, b)
-					ltks.db.profile.doexecutesoundpve = b
-				end,
-				width = "full",
-				order = 13
-			},
 			doexecutepercent = {
 				type = 'range',
 				name = 'Execute Percent',
@@ -347,7 +311,7 @@ local function giveGeneral()
 				min = 1,
 				max = 40,
 				step = 1,
-				order = 14
+				order = 13
 			},
 			dochatbox = {
 				type = 'toggle',
