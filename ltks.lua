@@ -2359,7 +2359,8 @@ end
 
 	function events:UNIT_DIED(unitGUID)
 		if issecretvalue and unitGUID and issecretvalue(unitGUID) then return end
-		ltks:Print("[LTKS-UD] guid=" .. tostring(unitGUID) .. " pending=" .. tostring(pendingKills[unitGUID] ~= nil))
+		local petTarget = UnitGUID("pettarget")
+		ltks:Print("[LTKS-UD] guid=" .. tostring(unitGUID) .. " pettarget=" .. tostring(petTarget) .. " match=" .. tostring(petTarget == unitGUID) .. " pending=" .. tostring(pendingKills[unitGUID] ~= nil) .. " name=" .. tostring(deadNameCache[unitGUID] or knownNames[unitGUID] or GetNameFromGUID(unitGUID)))
 		local rec = pendingKills[unitGUID]
 		if rec then
 			pendingKills[unitGUID] = nil
