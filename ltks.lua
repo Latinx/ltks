@@ -1727,7 +1727,10 @@ function ltks:PartyKillHandler(attackerGUID, targetGUID)
     -- identity data left to attribute the kill, so bail out instead of crashing.
     if not attackerGUID or not targetGUID then return end
     if issecretvalue and (issecretvalue(attackerGUID) or issecretvalue(targetGUID)) then return end
-    if attackerGUID ~= UnitGUID("player") then return end
+    local playerGUID = UnitGUID("player")
+    local petGUID = UnitGUID("pet")
+    -- A pet's killing blow counts as the player's kill.
+    if attackerGUID ~= playerGUID and attackerGUID ~= petGUID then return end
     local targetName = GetNameFromGUID(targetGUID)
     if targetName then
         local isPlayer = targetGUID:sub(1, 6) == "Player"
