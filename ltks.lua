@@ -31,6 +31,7 @@ local myMinions = {} -- MINE-affiliated damage sources: pets, guardians, totems
 local deadNameCache = {} -- destGUID -> name from damage/death events (kill attribution)
 local pendingKills = {} -- retail: unresolved PARTY_KILL victims (guid -> {time}), awaiting UNIT_DIED
 local knownNames = {} -- guid -> name from nameplates/target/mouseover (retail unit cache)
+local recentKills = {} -- guid -> GetTime() of last registered kill (dedupe PK vs pet-auto paths)
 local newestconfigversion = 1
 local frame, events = CreateFrame("Frame"), {};
 local damageDealers = {}
@@ -1746,6 +1747,7 @@ function ltks:PartyKillHandler(attackerGUID, targetGUID)
     if targetName then
         local isPlayer = targetGUID:sub(1, 6) == "Player"
         if isPlayer or ltks.db.profile.dopve then
+            recentKills[targetGUID] = GetTime()
             self:KillshotTX(targetName, GetTime())
         end
     else
@@ -1760,6 +1762,7 @@ function ltks:PartyKillHandler(attackerGUID, targetGUID)
                 pendingKills[targetGUID] = nil
                 local name = deadNameCache[targetGUID] or knownNames[targetGUID] or GetNameFromGUID(targetGUID) or "Unknown"
                 if targetGUID:sub(1, 6) == "Player" or ltks.db.profile.dopve then
+                    recentKills[targetGUID] = GetTime()
                     ltks:KillshotTX(name, rec.time)
                 end
             end
@@ -2386,7 +2389,24 @@ end
 			pendingKills[unitGUID] = nil
 			local name = deadNameCache[unitGUID] or knownNames[unitGUID] or GetNameFromGUID(unitGUID) or "Unknown"
 			if unitGUID:sub(1, 6) == "Player" or ltks.db.profile.dopve then
+				recentKills[unitGUID] = GetTime()
 				ltks:KillshotTX(name, rec.time)
+			end
+		elseif match then
+			-- Pure pet-auto kill: the game credits nobody (no PARTY_KILL), so
+			-- the pet's target at death is the evidence. Log-validated against
+			-- the combat log (pet Takedown/Smack as killing blow, no PK event).
+			-- recentKills dedupes against kills PARTY_KILL already counted.
+			local recent = recentKills[unitGUID] and (GetTime() - recentKills[unitGUID] < 3)
+			if not recent then
+				local name = deadNameCache[unitGUID] or knownNames[unitGUID] or GetNameFromGUID(unitGUID) or "Unknown"
+				if unitGUID:sub(1, 6) == "Player" or ltks.db.profile.dopve then
+					recentKills[unitGUID] = GetTime()
+					ltks:KillshotTX(name, GetTime())
+					local c = 0
+					for _ in pairs(recentKills) do c = c + 1 end
+					if c > 50 then wipe(recentKills) end
+				end
 			end
 		end
 	end
