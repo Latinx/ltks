@@ -231,6 +231,7 @@ local function giveOptions()
 				name = 'Reset Stats',
 				func = function()
 					streak = 0
+					ltks.db.profile.lastStreak = 0
 					deathstreak = 0
 					multikill = 0
 					ltks.db.profile.maxstreak = ltks.db.defaults.profile.maxstreak
