@@ -279,7 +279,7 @@ local function giveGeneral()
 					ltks.db.profile.mkwindow = b
 				end,
 				order = 11,
-				width = 2
+				width = 1
 			},
 			mktime = {
 				type = 'input',
@@ -297,7 +297,7 @@ local function giveGeneral()
 					end
 				end,
 				order = 12,
-				width = 2
+				width = 1
 			},
 			dopreparesound = {
 				type = 'toggle',
