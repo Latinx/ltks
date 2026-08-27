@@ -1975,8 +1975,9 @@ function ltks:GetKillshotSound(streak)
 			"hattrick.ogg",        -- 3
 			"juggernaut.ogg",      -- 4
 			"godlike.ogg",         -- 5
+			"holyshit.ogg",        -- 6+
 		}
-		if (streak > #utSounds) then return "godlike.ogg" end
+		if (streak > #utSounds) then return utSounds[#utSounds] end
 		return utSounds[streak]
 	end
     --If we get here the user has messed up their config we could build some sort of safety someday but for now we will just default to kssound1 FIXME
