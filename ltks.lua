@@ -1916,7 +1916,7 @@ function ltks:OnCommReceived(cchan, message, distribution, sender)
 				local ladder = packLadder[ltks.db.profile.soundpack] or packLadder.unreal2003
 				sound = ladder[rxstreak]
 			end
-			ltks:Print("[LTKS-RX] rxstreak=" .. tostring(rxstreak) .. " rxmk=" .. tostring(rxmultikill) .. " style=" .. tostring(ltks.db.profile.style) .. " pack=" .. tostring(ltks.db.profile.soundpack) .. " sound=" .. tostring(sound))
+			ltks:Print("[LTKS-RX] rxstreak=" .. tostring(rxstreak) .. " rxmk=" .. tostring(rxmultikill) .. " style=" .. tostring(ltks.db.profile.style) .. " pack=" .. tostring(ltks.db.profile.soundpack) .. " win=" .. tostring(ltks.db.profile.mkwindow) .. " mktime=" .. tostring(ltks.db.profile.mktime) .. " sound=" .. tostring(sound))
 			if sound and playerName == rxkiller then self:ltks_SoundPack(sound) end
 
 			-- We have landed a kill
