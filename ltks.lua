@@ -50,8 +50,11 @@ local cleuRegistered = false
 local function TryRegisterCLEU()
 	if cleuRegistered or not IsRetail() then return end
 	if InCombatLockdown and InCombatLockdown() then ltks:Print("[LTKS-CLEU] deferred: in combat"); return end
-	local _, instanceType = IsInInstance()
-	if instanceType then ltks:Print("[LTKS-CLEU] deferred: instance=" .. tostring(instanceType)); return end
+	local inInstance, instanceType = IsInInstance()
+	-- IsInInstance() returns (false, "none") in the open world: "none" is a
+	-- truthy string, so gate on the BOOLEAN or CLEU never registers outside
+	-- instances.
+	if inInstance then ltks:Print("[LTKS-CLEU] deferred: instance=" .. tostring(instanceType)); return end
 	if C_EventUtils and C_EventUtils.IsEventValid and not C_EventUtils.IsEventValid("COMBAT_LOG_EVENT_UNFILTERED") then
 		ltks:Print("[LTKS-CLEU] IsEventValid=false")
 		return
