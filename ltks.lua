@@ -1744,9 +1744,11 @@ function ltks:PartyKillHandler(attackerGUID, targetGUID)
     -- identity data left to attribute the kill, so bail out instead of crashing.
     if not attackerGUID or not targetGUID then return end
     if issecretvalue and (issecretvalue(attackerGUID) or issecretvalue(targetGUID)) then return end
-    pcall(function()
-        ltks:Print("[LTKS-PK] attacker=" .. tostring(attackerGUID) .. " target=" .. tostring(targetGUID) .. " pet=" .. tostring(UnitGUID("pet")) .. " mine=" .. tostring(myMinions[attackerGUID] == true))
-    end)
+    if ltks.db.profile.dopve then
+        pcall(function()
+            ltks:Print("[LTKS-PK] attacker=" .. tostring(attackerGUID) .. " target=" .. tostring(targetGUID) .. " pet=" .. tostring(UnitGUID("pet")) .. " mine=" .. tostring(myMinions[attackerGUID] == true))
+        end)
+    end
     local playerGUID = UnitGUID("player")
     local petGUID = UnitGUID("pet")
     -- A pet's killing blow counts as the player's kill.
@@ -1812,7 +1814,9 @@ function ltks:KillshotTX(txvictim,txtimestamp)
 	-- New Multikill timer
 	lastkill = txtimestamp
 
-	ltks:Print("[LTKS-KILL] streak=" .. streak .. " mk=" .. multikill .. " victim=" .. txvictim)
+	if ltks.db.profile.dopve then
+		ltks:Print("[LTKS-KILL] streak=" .. streak .. " mk=" .. multikill .. " victim=" .. txvictim)
+	end
 	
 	-- Reset deathstreak
 	deathstreak = 0
@@ -1981,7 +1985,9 @@ function ltks:OnCommReceived(cchan, message, distribution, sender)
 					sound = ladder[#ladder]
 				end
 			end
-			ltks:Print("[LTKS-RX] rxstreak=" .. tostring(rxstreak) .. " rxmk=" .. tostring(rxmultikill) .. " style=" .. tostring(ltks.db.profile.style) .. " pack=" .. tostring(ltks.db.profile.soundpack) .. " win=" .. tostring(ltks.db.profile.mkwindow) .. " mktime=" .. tostring(ltks.db.profile.mktime) .. " sound=" .. tostring(sound))
+			if ltks.db.profile.dopve then
+				ltks:Print("[LTKS-RX] rxstreak=" .. tostring(rxstreak) .. " rxmk=" .. tostring(rxmultikill) .. " style=" .. tostring(ltks.db.profile.style) .. " pack=" .. tostring(ltks.db.profile.soundpack) .. " win=" .. tostring(ltks.db.profile.mkwindow) .. " mktime=" .. tostring(ltks.db.profile.mktime) .. " sound=" .. tostring(sound))
+			end
 			if sound and playerName == rxkiller then self:ltks_SoundPack(sound) end
 
 			-- We have landed a kill
@@ -2021,7 +2027,7 @@ end
 
 function ltks:PlayerDeath(myKiller)
 	streak = 0;
-	ltks:Print("[LTKS-DEATH] streak reset")
+	if ltks.db.profile.dopve then ltks:Print("[LTKS-DEATH] streak reset") end
 	ltks.db.profile.lastStreak = 0;
 	deathstreak = deathstreak + 1;
 	if (deathstreak > ltks.db.profile.maxdeathstreak) then ltks.db.profile.maxdeathstreak = deathstreak end
@@ -2347,6 +2353,7 @@ function events:PLAYER_REGEN_ENABLED()
 end
 
 	local function ltks_DumpCurrentEntry(tag)
+		if not ltks.db.profile.dopve then return end
 		if not (C_CombatLog and C_CombatLog.GetCurrentEntryInfo) then return end
 		pcall(function()
 			local n = select("#", C_CombatLog.GetCurrentEntryInfo())
@@ -2360,38 +2367,42 @@ end
 		end)
 	end
 	function events:PARTY_KILL(...)
-		local dump = {}
-		for i = 1, select("#", ...) do
-			local ok, v = pcall(tostring, select(i, ...))
-			dump[i] = (ok and v) or "<secret>"
+		if ltks.db.profile.dopve then
+			local dump = {}
+			for i = 1, select("#", ...) do
+				local ok, v = pcall(tostring, select(i, ...))
+				dump[i] = (ok and v) or "<secret>"
+			end
+			ltks:Print("[LTKS-PKARGS] n=" .. select("#", ...) .. " " .. table.concat(dump, "|"))
+			ltks_DumpCurrentEntry("PK")
 		end
-		ltks:Print("[LTKS-PKARGS] n=" .. select("#", ...) .. " " .. table.concat(dump, "|"))
-		ltks_DumpCurrentEntry("PK")
 		ltks:PartyKillHandler(...)
 	end
 
 	function events:UNIT_DIED(unitGUID)
 		if issecretvalue and unitGUID and issecretvalue(unitGUID) then return end
 		local ptOk, petTarget = pcall(UnitGUID, "pettarget")
-		local ptStr = "?"
-		if ptOk and petTarget then
-			local sOk, s = pcall(tostring, petTarget)
-			ptStr = (sOk and s) or "<secret>"
-		end
 		local match = false
 		if ptOk and petTarget and unitGUID then
 			local mOk, m = pcall(function() return petTarget == unitGUID end)
 			match = mOk and m
 		end
-		local nmStr = "?"
-		do
-			local nOk, nm = pcall(GetNameFromGUID, unitGUID)
-			if nOk and nm then
-				local sOk, s = pcall(tostring, nm)
-				nmStr = (sOk and s) or "<secret>"
+		if ltks.db.profile.dopve then
+			local ptStr = "?"
+			if ptOk and petTarget then
+				local sOk, s = pcall(tostring, petTarget)
+				ptStr = (sOk and s) or "<secret>"
 			end
+			local nmStr = "?"
+			do
+				local nOk, nm = pcall(GetNameFromGUID, unitGUID)
+				if nOk and nm then
+					local sOk, s = pcall(tostring, nm)
+					nmStr = (sOk and s) or "<secret>"
+				end
+			end
+			ltks:Print("[LTKS-UD] guid=" .. tostring(unitGUID) .. " pettarget=" .. ptStr .. " match=" .. tostring(match) .. " pending=" .. tostring(pendingKills[unitGUID] ~= nil) .. " name=" .. nmStr)
 		end
-		ltks:Print("[LTKS-UD] guid=" .. tostring(unitGUID) .. " pettarget=" .. ptStr .. " match=" .. tostring(match) .. " pending=" .. tostring(pendingKills[unitGUID] ~= nil) .. " name=" .. nmStr)
 		local rec = pendingKills[unitGUID]
 		if rec then
 			pendingKills[unitGUID] = nil
@@ -2456,7 +2467,7 @@ end
     -- authoritative killer.
     local cleuSeen = false
     function events:COMBAT_LOG_EVENT_UNFILTERED(...)
-        if not cleuSeen then
+        if ltks.db.profile.dopve and not cleuSeen then
             cleuSeen = true
             ltks:Print("[LTKS-CLEU] handler live")
         end
@@ -2488,7 +2499,7 @@ end
                 myMinions[unitGuid] = true
             end
         end
-        if event == "UNIT_DIED" then
+        if event == "UNIT_DIED" and ltks.db.profile.dopve then
             local dump = {}
             for i = 1, n do dump[i] = tostring(info[i]) end
             ltks:Print("[LTKS-DIE] src=" .. tostring(sourceGUID) .. " " .. tostring(sourceName) .. " flags=" .. tostring(sourceFlags) .. " dest=" .. tostring(destGUID) .. " payload=" .. table.concat(dump, "|"))
@@ -2581,7 +2592,7 @@ function events:CHAT_MSG_SYSTEM(msg, ...)
 end
 
 function ltks:OnEnable()
-	ltks:Print("[LTKS-LOAD] code version=" .. version .. " toc=12.1.6")
+	if ltks.db.profile.dopve then ltks:Print("[LTKS-LOAD] code version=" .. version .. " toc=12.1.6") end
 	--self:RegisterEvent("CHAT_MSG_ADDON", "AddonMessageHandler")
 	--OnEvent runs the function events:event
 	frame:SetScript("OnEvent", function(self, event, ...)
