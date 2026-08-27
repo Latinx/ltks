@@ -1766,6 +1766,8 @@ function ltks:KillshotTX(txvictim,txtimestamp)
 	
 	-- New Multikill timer
 	lastkill = txtimestamp
+
+	ltks:Print("[LTKS-KILL] streak=" .. streak .. " mk=" .. multikill .. " victim=" .. txvictim)
 	
 	-- Reset deathstreak
 	deathstreak = 0
