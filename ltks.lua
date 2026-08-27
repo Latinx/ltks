@@ -78,7 +78,7 @@ local packChain = {
 local packLadder = {
 	-- Early streak announcer (1-4); 5+ is milestone tiers, chains cover multikills
 	unreal2003 = { "firstblood.ogg", "doublekill.ogg", "hattrick.ogg", "juggernaut.ogg" },
-	lol = { "firstblood.ogg", "doublekill.ogg", "triplekill.ogg", "quadrakill.ogg" },
+	lol = { "firstblood.ogg", "doublekill.ogg", "triplekill.ogg", "quadrakill.ogg", "pentakill.ogg", "hexakill.ogg", "legendary.ogg" },
 }
 local packTiers = {
 	unreal2003 = {
@@ -1963,7 +1963,7 @@ function ltks:OnCommReceived(cchan, message, distribution, sender)
 			end
 			if not sound then
 				local ladder = packLadder[ltks.db.profile.soundpack] or packLadder.unreal2003
-				sound = ladder[rxstreak]
+				sound = ladder[rxstreak] or ladder[#ladder]
 			end
 			ltks:Print("[LTKS-RX] rxstreak=" .. tostring(rxstreak) .. " rxmk=" .. tostring(rxmultikill) .. " style=" .. tostring(ltks.db.profile.style) .. " pack=" .. tostring(ltks.db.profile.soundpack) .. " win=" .. tostring(ltks.db.profile.mkwindow) .. " mktime=" .. tostring(ltks.db.profile.mktime) .. " sound=" .. tostring(sound))
 			if sound and playerName == rxkiller then self:ltks_SoundPack(sound) end
