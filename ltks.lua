@@ -1907,7 +1907,7 @@ function ltks:OnCommReceived(cchan, message, distribution, sender)
 				local chain = packChain[ltks.db.profile.soundpack] or packChain.unreal2003
 				sound = chain[math.min(rxmultikill, #chain)]
 				if sound then
-					self:ScrollText(rxkiller .. " got a " .. self.db.profile.kstextM[rxmultikill] .. "!")
+					self:ScrollText(rxkiller .. " got a " .. self.db.profile.kstextM[math.min(rxmultikill, #self.db.profile.kstextM)] .. "!")
 				end
 			end
 			if not sound then
