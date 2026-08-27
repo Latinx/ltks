@@ -1530,6 +1530,9 @@ function ltks:OnInitialize()
 
 	-- Migrate legacy sound pack paths (baby/female/sexy folders removed) to the
 	-- single Unreal 2003 pack at the sounds root.
+
+	-- Setup DB
+	self.db = LibStub("AceDB-3.0"):New("ltksDB", defaults, true)
 	local legacyPath = self.db.profile.soundpath or ""
 	if legacyPath:find("\\baby\\") or legacyPath:find("\\female\\") or legacyPath:find("\\sexy\\") then
 		self.db.profile.soundpath = soundPath
