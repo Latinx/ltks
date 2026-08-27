@@ -30,6 +30,7 @@ local mkChain = false -- multikill chain active (combat window mode)
 local myMinions = {} -- MINE-affiliated damage sources: pets, guardians, totems
 local deadNameCache = {} -- destGUID -> name from damage/death events (kill attribution)
 local pendingKills = {} -- retail: unresolved PARTY_KILL victims (guid -> {time}), awaiting UNIT_DIED
+local knownNames = {} -- guid -> name from nameplates/target/mouseover (retail unit cache)
 local newestconfigversion = 1
 local frame, events = CreateFrame("Frame"), {};
 local damageDealers = {}
@@ -1744,7 +1745,7 @@ function ltks:PartyKillHandler(attackerGUID, targetGUID)
     local petGUID = UnitGUID("pet")
     -- A pet's killing blow counts as the player's kill.
     if attackerGUID ~= playerGUID and attackerGUID ~= petGUID and not myMinions[attackerGUID] then return end
-    local targetName = deadNameCache[targetGUID] or GetNameFromGUID(targetGUID)
+    local targetName = deadNameCache[targetGUID] or knownNames[targetGUID] or GetNameFromGUID(targetGUID)
     if targetName then
         local isPlayer = targetGUID:sub(1, 6) == "Player"
         if isPlayer or ltks.db.profile.dopve then
@@ -1760,7 +1761,7 @@ function ltks:PartyKillHandler(attackerGUID, targetGUID)
             local rec = pendingKills[targetGUID]
             if rec then
                 pendingKills[targetGUID] = nil
-                local name = deadNameCache[targetGUID] or GetNameFromGUID(targetGUID) or "Unknown"
+                local name = deadNameCache[targetGUID] or knownNames[targetGUID] or GetNameFromGUID(targetGUID) or "Unknown"
                 if targetGUID:sub(1, 6) == "Player" or ltks.db.profile.dopve then
                     ltks:KillshotTX(name, rec.time)
                 end
@@ -2362,11 +2363,34 @@ end
 		local rec = pendingKills[unitGUID]
 		if rec then
 			pendingKills[unitGUID] = nil
-			local name = deadNameCache[unitGUID] or GetNameFromGUID(unitGUID) or "Unknown"
+			local name = deadNameCache[unitGUID] or knownNames[unitGUID] or GetNameFromGUID(unitGUID) or "Unknown"
 			if unitGUID:sub(1, 6) == "Player" or ltks.db.profile.dopve then
 				ltks:KillshotTX(name, rec.time)
 			end
 		end
+	end
+
+	-- J.A.R.V.I.S-style unit cache: nameplates/target/mouseover give a live
+	-- guid -> name map of every visible unit, resolving PARTY_KILL victims that
+	-- are neither our target nor focus (off-target pet kills).
+	local function ltks_StoreUnitName(unit)
+		if not unit then return end
+		local guid, name = UnitGUID(unit), UnitName(unit)
+		if guid and name and not (issecretvalue and (issecretvalue(guid) or issecretvalue(name))) then
+			knownNames[guid] = name
+			local c = 0
+			for _ in pairs(knownNames) do c = c + 1 end
+			if c > 100 then wipe(knownNames) end
+		end
+	end
+	function events:NAME_PLATE_UNIT_ADDED(unit)
+		ltks_StoreUnitName(unit)
+	end
+	function events:PLAYER_TARGET_CHANGED()
+		ltks_StoreUnitName("target")
+	end
+	function events:UPDATE_MOUSEOVER_UNIT()
+		ltks_StoreUnitName("mouseover")
 	end
 
     function events:PLAYER_DEAD()
