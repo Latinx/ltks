@@ -1967,39 +1967,14 @@ function ltks:GetKillshotSound(streak)
 			if (ltks.db.profile.ksrank[x] > 0) and (streak >= ltks.db.profile.ksrank[x]) then return ltks.db.profile.kssound[x]; end
 		end
 	else
-		-- UT Style: every consecutive kill plays the Unreal Tournament
-		-- announcer ladder (slot 4 = juggernaut; swap the filename to change it)
+		-- UT Style: every consecutive kill plays the announcer ladder
+		-- (slots 3 and 4 use hattrick/juggernaut until exact oggs are supplied)
 		local utSounds = {
-			"headshot.ogg",        -- 1
+			"firstblood.ogg",      -- 1
 			"doublekill.ogg",      -- 2
 			"hattrick.ogg",        -- 3
 			"juggernaut.ogg",      -- 4
-			"multikill.ogg",       -- 5
-			"rampage.ogg",         -- 6
-			"killingspree.ogg",    -- 7
-			"dominating.ogg",      -- 8
-			"impressive.ogg",      -- 9
-			"unstoppable.ogg",     -- 10
-			"outstanding.ogg",     -- 11
-			"megakill.ogg",        -- 12
-			"ultrakill.ogg",       -- 13
-			"eagleeye.ogg",        -- 14
-			"ownage.ogg",          -- 15
-			"comboking.ogg",       -- 16
-			"maniac.ogg",          -- 17
-			"ludicrouskill.ogg",   -- 18
-			"bullseye.ogg",        -- 19
-			"excellent.ogg",       -- 20
-			"pancake.ogg",         -- 21
-			"headhunter.ogg",      -- 22
-			"unreal.ogg",          -- 23
-			"assasin.ogg",         -- 24
-			"whickedsick.ogg",     -- 25
-			"massacre.ogg",        -- 26
-			"killingmachine.ogg",  -- 27
-			"monsterkill.ogg",     -- 28
-			"holyshit.ogg",        -- 29
-			"godlike.ogg",         -- 30
+			"godlike.ogg",         -- 5
 		}
 		if (streak > #utSounds) then return "godlike.ogg" end
 		return utSounds[streak]
