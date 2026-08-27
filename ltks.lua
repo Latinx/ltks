@@ -28,6 +28,7 @@ local timestamp = 0
 local lastDamageSource = nil
 local mkChain = false -- multikill chain active (combat window mode)
 local myMinions = {} -- MINE-affiliated damage sources: pets, guardians, totems
+local deadNameCache = {} -- destGUID -> name from damage/death events (kill attribution)
 local newestconfigversion = 1
 local frame, events = CreateFrame("Frame"), {};
 local damageDealers = {}
@@ -1733,7 +1734,7 @@ function ltks:PartyKillHandler(attackerGUID, targetGUID)
     local petGUID = UnitGUID("pet")
     -- A pet's killing blow counts as the player's kill.
     if attackerGUID ~= playerGUID and attackerGUID ~= petGUID and not myMinions[attackerGUID] then return end
-    local targetName = GetNameFromGUID(targetGUID)
+    local targetName = deadNameCache[targetGUID] or GetNameFromGUID(targetGUID)
     if targetName then
         local isPlayer = targetGUID:sub(1, 6) == "Player"
         if isPlayer or ltks.db.profile.dopve then
@@ -2349,6 +2350,14 @@ end
             local dump = {}
             for i = 1, n do dump[i] = tostring(info[i]) end
             ltks:Print("[LTKS-DIE] src=" .. tostring(sourceGUID) .. " " .. tostring(sourceName) .. " flags=" .. tostring(sourceFlags) .. " dest=" .. tostring(destGUID) .. " payload=" .. table.concat(dump, "|"))
+        end
+        -- Remember every damaged/dying unit's name so PARTY_KILL can resolve
+        -- victims that are not (or no longer) our target or focus.
+        if destGUID and destName then
+            deadNameCache[destGUID] = destName
+            local c = 0
+            for _ in pairs(deadNameCache) do c = c + 1 end
+            if c > 60 then wipe(deadNameCache) end
         end
         if destGUID ~= UnitGUID("player") then return end
         if string.find(event, "_DAMAGE") then
