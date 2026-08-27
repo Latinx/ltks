@@ -69,7 +69,7 @@ local soundPath = "Interface\\AddOns\\ltks\\sounds\\"
 -- Per-pack sound tables: multikill chain follow-ups and per-kill base announcer
 local packChain = {
 	unreal2003 = { "doublekill.ogg", "multikill.ogg", "monsterkill.ogg", "holyshit.ogg" },
-	lol = { "doublekill.ogg", "triplekill.ogg", "quadrakill.ogg", "pentakill.ogg", "legendary.ogg" },
+	lol = { "doublekill.ogg", "triplekill.ogg", "quadrakill.ogg", "pentakill.ogg", "hexakill.ogg", "legendary.ogg" },
 }
 local packLadder = {
 	-- Early streak announcer (1-4); 5+ is milestone tiers, chains cover multikills
@@ -1504,7 +1504,7 @@ local defaults = {
 		kssoundM = {"firstblood.ogg", "doublekill.ogg", "multikill.ogg", "monsterkill.ogg", "holyshit.ogg"},
 		kssoundP = "prepare.ogg",
 		kssoundE = "finishhim.ogg",
-		kstextM = {"Double Kill!", "Triple Kill!", "Quadra Kill!", "Penta Kill!", "Legendary!"},
+		kstextM = {"Double Kill!", "Triple Kill!", "Quadra Kill!", "Penta Kill!", "Hexakill!", "Legendary!"},
 		lastStreak = 0,
 		killlog = {},
 		damageDealers = {},
