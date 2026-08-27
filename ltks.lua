@@ -613,8 +613,8 @@ local function giveGeneral()
 			},
 			dopve = {
 				type = 'toggle',
-				name = "Trigger off NPC/PVE Killshots - VERY SPAMMY, use for testing.",
-				desc = "Please don't use this",
+				name = "Debug",
+				desc = "Trigger off NPC/PVE Killshots - VERY SPAMMY, use for testing.",
 				get = function()
 					return ltks.db.profile.dopve
 				end,
