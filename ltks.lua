@@ -1584,13 +1584,21 @@ end
 
 function ltks:SoundEventHandler(info, sound)
 	if (ltks.db.profile.dosound) then
-		if (tonumber(GetCVar("Sound_EnableAllSound") and GetCVar("Sound_EnableSFX")) == 1) then
+		-- Only gate on the channel this addon actually plays on; the old check
+		-- forced the SFX cvar even for Master/Music playback (and "0" strings
+		-- are truthy, so the AllSound half never worked anyway).
+		local channel = ltks.db.profile.soundchannel or "Master"
+		local cvar = "Sound_EnableAllSound"
+		if channel == "SFX" then cvar = "Sound_EnableSFX"
+		elseif channel == "Ambience" then cvar = "Sound_EnableAmbience"
+		elseif channel == "Music" then cvar = "Sound_EnableMusic" end
+		if (GetCVar(cvar) == "1") then
 			--[===[@debug@
 				-- Dev Debugging functions
 				self.Print("DEBUG: Sound: " .. sound )
-				self.Print("DEBUG: Soundchannel: " .. ltks.db.profile.soundchannel )
+				self.Print("DEBUG: Soundchannel: " .. channel )
 			--@end-debug@]===]
-			PlaySoundFile(sound,ltks.db.profile.soundchannel)
+			PlaySoundFile(sound,channel)
 		end
 	end
 end
