@@ -1770,6 +1770,8 @@ function ltks:KillshotTX(txvictim,txtimestamp)
 	
 	-- New Multikill timer
 	lastkill = txtimestamp
+
+	ltks:Print("[LTKS-KILL] streak=" .. streak .. " mk=" .. multikill .. " victim=" .. txvictim)
 	
 	-- Reset deathstreak
 	deathstreak = 0
@@ -1933,6 +1935,7 @@ function ltks:OnCommReceived(cchan, message, distribution, sender)
 				local ladder = packLadder[ltks.db.profile.soundpack] or packLadder.unreal2003
 				sound = ladder[rxstreak]
 			end
+			ltks:Print("[LTKS-RX] rxstreak=" .. tostring(rxstreak) .. " rxmk=" .. tostring(rxmultikill) .. " style=" .. tostring(ltks.db.profile.style) .. " pack=" .. tostring(ltks.db.profile.soundpack) .. " win=" .. tostring(ltks.db.profile.mkwindow) .. " mktime=" .. tostring(ltks.db.profile.mktime) .. " sound=" .. tostring(sound))
 			if sound and playerName == rxkiller then self:ltks_SoundPack(sound) end
 
 			-- We have landed a kill
@@ -1972,6 +1975,7 @@ end
 
 function ltks:PlayerDeath(myKiller)
 	streak = 0;
+	ltks:Print("[LTKS-DEATH] streak reset")
 	ltks.db.profile.lastStreak = 0;
 	deathstreak = deathstreak + 1;
 	if (deathstreak > ltks.db.profile.maxdeathstreak) then ltks.db.profile.maxdeathstreak = deathstreak end
@@ -2393,6 +2397,7 @@ function events:CHAT_MSG_SYSTEM(msg, ...)
 end
 
 function ltks:OnEnable()
+	ltks:Print("[LTKS-LOAD] code version=" .. version .. " toc=12.1.6")
 	--self:RegisterEvent("CHAT_MSG_ADDON", "AddonMessageHandler")
 	--OnEvent runs the function events:event
 	frame:SetScript("OnEvent", function(self, event, ...)
