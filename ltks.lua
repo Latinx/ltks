@@ -234,6 +234,7 @@ local function giveOptions()
 					ltks.db.profile.lastStreak = 0
 					deathstreak = 0
 					multikill = 0
+					lastkill = 0
 					ltks.db.profile.maxstreak = ltks.db.defaults.profile.maxstreak
 					ltks.db.profile.maxdeathstreak = ltks.db.defaults.profile.maxdeathstreak
 					ltks.db.profile.killlog = ltks.db.defaults.profile.killlog
@@ -250,6 +251,7 @@ local function giveOptions()
 					streak = 0
 					deathstreak = 0
 					multikill = 0
+					lastkill = 0
 					ltks.db:ResetProfile()
 				end,
 				width = "full",
