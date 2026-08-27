@@ -300,19 +300,6 @@ local function giveGeneral()
 				order = 12,
 				width = 1
 			},
-			doexecutepercent = {
-				type = 'range',
-				name = 'Execute Percent',
-				desc = 'The percent health that triggers the execute sound',
-				width = "full",
-				get = function() return ltks.db.profile.doexecutepercent end,
-				set = function(info, v) ltks.db.profile.doexecutepercent = v end,
-				disabled = function() if ltks.db.profile.doexecutesound or ltks.db.profile.doexecutesoundpve then return false else return true end end,
-				min = 1,
-				max = 40,
-				step = 1,
-				order = 13
-			},
 			dochatbox = {
 				type = 'toggle',
 				name = 'Print killshots and deaths in chatbox in addition to logging in /ltks',
