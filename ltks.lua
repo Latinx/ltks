@@ -2315,8 +2315,14 @@ function events:PLAYER_REGEN_ENABLED()
     TryRegisterCLEU()
 end
 
-	function events:PARTY_KILL(attackerGUID, targetGUID)
-		ltks:PartyKillHandler(attackerGUID, targetGUID)
+	function events:PARTY_KILL(...)
+		local dump = {}
+		for i = 1, select("#", ...) do
+			local ok, v = pcall(tostring, select(i, ...))
+			dump[i] = (ok and v) or "<secret>"
+		end
+		ltks:Print("[LTKS-PKARGS] n=" .. select("#", ...) .. " " .. table.concat(dump, "|"))
+		ltks:PartyKillHandler(...)
 	end
 
     function events:PLAYER_DEAD()
