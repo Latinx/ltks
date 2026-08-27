@@ -1915,7 +1915,7 @@ function ltks:OnCommReceived(cchan, message, distribution, sender)
 				local ladder = packLadder[ltks.db.profile.soundpack] or packLadder.unreal2003
 				sound = ladder[rxstreak]
 			end
-			if sound then self:ltks_SoundPack(sound) end
+			if sound and playerName == rxkiller then self:ltks_SoundPack(sound) end
 
 			-- We have landed a kill
 			if playerName == rxkiller then
