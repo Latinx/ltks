@@ -55,7 +55,9 @@ local function TryRegisterCLEU()
 	-- truthy string, so gate on the BOOLEAN or CLEU never registers outside
 	-- instances.
 	if inInstance then ltks:Print("[LTKS-CLEU] deferred: instance=" .. tostring(instanceType)); return end
-	if C_EventUtils and C_EventUtils.IsEventValid and not C_EventUtils.IsEventValid("COMBAT_LOG_EVENT_UNFILTERED") then
+	local cleuValid = C_EventUtils and C_EventUtils.IsEventValid and C_EventUtils.IsEventValid("COMBAT_LOG_EVENT_UNFILTERED")
+	ltks:Print("[LTKS-CLEU] api: C_CombatLog=" .. tostring(C_CombatLog ~= nil) .. " legacyGlobal=" .. tostring(CombatLogGetCurrentEventInfo ~= nil) .. " IsEventValid=" .. tostring(cleuValid) .. " EventCB=" .. tostring(Event ~= nil and Event.RegisterCallback ~= nil))
+	if not cleuValid then
 		ltks:Print("[LTKS-CLEU] IsEventValid=false")
 		return
 	end
