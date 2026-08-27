@@ -1504,10 +1504,10 @@ local defaults = {
 		mktime = 10,
 		ksrank = {1, 2, 4, 6, 8, 10, 12},
 		kssound = {"ownage.ogg", "killingspree.ogg", "rampage.ogg", "dominating.ogg", "unstoppable.ogg", "godlike.ogg", "whickedsick.ogg"},
-		kssoundM = {"doublekill.ogg", "multikill.ogg", "megakill.ogg", "ultrakill.ogg", "monsterkill.ogg", "ludicrouskill.ogg", "holyshit.ogg"},
+		kssoundM = {"firstblood.ogg", "doublekill.ogg", "multikill.ogg", "monsterkill.ogg", "holyshit.ogg"},
 		kssoundP = "prepare.ogg",
 		kssoundE = "finishhim.ogg",
-		kstextM = {"DOUBLEKILL!", "MULTIKILL!", "MEGAKILL!", "ULTRAKILL!!!", "MONSTERKILL!!!", "LUDICROUSKILL!!!", "H O L Y  S H I T!!!"},
+		kstextM = {"First Blood!", "Double Kill!", "Triple Kill!", "Quadra Kill!", "Penta Kill!"},
 		lastStreak = 0,
 		killlog = {},
 		damageDealers = {},
@@ -1749,7 +1749,7 @@ function ltks:KillshotTX(txvictim,txtimestamp)
 		if mkChain then
 			multikill = multikill + 1;
 		else
-			multikill = 0;
+			multikill = 1; -- First Blood starts the chain
 			mkChain = true;
 		end
 		-- This most like will never be used except in test mode, but lets prevent the error anyways
@@ -1760,7 +1760,7 @@ function ltks:KillshotTX(txvictim,txtimestamp)
 		-- This most like will never be used except in test mode, but lets prevent the error anyways
 		if (multikill > #self.db.profile.kstextM) then multikill = #self.db.profile.kstextM end
 	else
-		multikill =  0 
+		multikill = 1; -- First Blood starts a new chain
 	end
 	
 	-- New Multikill timer
