@@ -2238,13 +2238,19 @@ if IsRetail() then
 -- Combat state: resets the multikill chain and the killer tracker. Defined for
 -- both clients so the "until out of combat" multikill window works everywhere.
 function events:PLAYER_REGEN_DISABLED()
-    mkChain = false
-    multikill = 0
+    -- Combat-mode chains reset at combat boundaries; timer-mode chains only
+    -- care about the window, so leave them alone here.
+    if (ltks.db.profile.mkwindow == "combat") then
+        mkChain = false
+        multikill = 0
+    end
 end
 
 function events:PLAYER_REGEN_ENABLED()
-    mkChain = false
-    multikill = 0
+    if (ltks.db.profile.mkwindow == "combat") then
+        mkChain = false
+        multikill = 0
+    end
     lastDamageSource = nil
     TryRegisterCLEU()
 end
