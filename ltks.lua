@@ -1532,6 +1532,13 @@ function ltks:OnInitialize()
 		ltks:Print("Config outdated, reverting to defaults.")
 		ltks.db:ResetProfile()
 	end
+	-- Repair stored sound paths: collapse doubled backslashes and fix any
+	-- pre-rename dgks folder references (both break PlaySoundFile silently).
+	local storedPath = self.db.profile.soundpath or ""
+	local fixedPath = storedPath:gsub("\\\\+", "\\"):gsub("AddOns\\dgks\\", "AddOns\\ltks\\")
+	if fixedPath ~= storedPath then
+		self.db.profile.soundpath = fixedPath
+	end
 
 	if (addonName == "ltks_classic") then
 		SendSystemMessage("Please switch to LT Killshot, the classic specific version, LT Killshot Classic, is no longer getting updates.")
