@@ -1901,11 +1901,13 @@ function ltks:OnCommReceived(cchan, message, distribution, sender)
 			self:ScrollText(killshottext)
 			
 			-- Process multikill and play appropiate sound and text
-			if rxmultikill > 0 then
+			-- Streak milestones (every 5 kills) override the chain sound
+			local tierSound = ltks:GetKillshotSound(rxstreak)
+			if tierSound then
+				self:ltks_SoundPack(tierSound)
+			elseif rxmultikill > 0 then
 				self:ScrollText(rxkiller .. " got a " .. self.db.profile.kstextM[rxmultikill] .. "!")
 				self:ltks_SoundPack(self.db.profile.kssoundM[rxmultikill])
-			else
-				self:ltks_SoundPack(ltks:GetKillshotSound(rxstreak))
 			end
 
 			-- We have landed a kill
@@ -1967,18 +1969,40 @@ function ltks:GetKillshotSound(streak)
 			if (ltks.db.profile.ksrank[x] > 0) and (streak >= ltks.db.profile.ksrank[x]) then return ltks.db.profile.kssound[x]; end
 		end
 	else
-		-- UT Style: every consecutive kill plays the announcer ladder
-		-- (slots 3 and 4 use hattrick/juggernaut until exact oggs are supplied)
-		local utSounds = {
-			"firstblood.ogg",      -- 1
-			"doublekill.ogg",      -- 2
-			"hattrick.ogg",        -- 3
-			"juggernaut.ogg",      -- 4
-			"godlike.ogg",         -- 5
-			"holyshit.ogg",        -- 6+
+		-- UT Style: streak milestones every 5 kills, walking the full sound set
+		-- (cycles so 500-kill streaks keep announcing)
+		local tierSounds = {
+			"killingspree.ogg",   -- 5
+			"rampage.ogg",        -- 10
+			"dominating.ogg",     -- 15
+			"unstoppable.ogg",    -- 20
+			"godlike.ogg",        -- 25
+			"whickedsick.ogg",    -- 30
+			"impressive.ogg",     -- 35
+			"outstanding.ogg",    -- 40
+			"megakill.ogg",       -- 45
+			"ultrakill.ogg",      -- 50
+			"eagleeye.ogg",       -- 55
+			"ownage.ogg",         -- 60
+			"comboking.ogg",      -- 65
+			"maniac.ogg",         -- 70
+			"ludicrouskill.ogg",  -- 75
+			"bullseye.ogg",       -- 80
+			"excellent.ogg",      -- 85
+			"pancake.ogg",        -- 90
+			"headhunter.ogg",     -- 95
+			"unreal.ogg",         -- 100
+			"assasin.ogg",        -- 105
+			"massacre.ogg",       -- 110
+			"killingmachine.ogg", -- 115
+			"monsterkill.ogg",    -- 120
+			"holyshit.ogg",       -- 125
 		}
-		if (streak > #utSounds) then return utSounds[#utSounds] end
-		return utSounds[streak]
+		if (streak % 5 == 0) then
+			local idx = (streak / 5 - 1) % #tierSounds + 1
+			return tierSounds[idx]
+		end
+		return
 	end
     --If we get here the user has messed up their config we could build some sort of safety someday but for now we will just default to kssound1 FIXME
 	return ltks.db.profile.kssound[1];
