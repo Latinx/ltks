@@ -2326,9 +2326,9 @@ end
         local n = select("#", CombatLogGetCurrentEventInfo())
         local info = { CombatLogGetCurrentEventInfo() }
         local event = info[2]
-        local sourceGUID, sourceName, sourceFlags, destGUID = info[4], info[5], info[6], info[8]
+        local sourceGUID, sourceName, sourceFlags, destGUID, destName = info[4], info[5], info[6], info[8], info[9]
         if issecretvalue then
-            if (sourceGUID and issecretvalue(sourceGUID)) or (sourceName and issecretvalue(sourceName)) or (sourceFlags and issecretvalue(sourceFlags)) or (destGUID and issecretvalue(destGUID)) then return end
+            if (sourceGUID and issecretvalue(sourceGUID)) or (sourceName and issecretvalue(sourceName)) or (sourceFlags and issecretvalue(sourceFlags)) or (destGUID and issecretvalue(destGUID)) or (destName and issecretvalue(destName)) then return end
         end
         -- Any unit under our control that deals damage (pet, guardian, totem)
         -- can land the killing blow; remember it for PARTY_KILL attribution.
