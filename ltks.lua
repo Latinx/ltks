@@ -1722,13 +1722,13 @@ function ltks:CombatLogEventHandler(info, timestamp, event, hideCaster, sourceGU
 end
 
 function ltks:PartyKillHandler(attackerGUID, targetGUID)
-    ltks:Print("[LTKS-PK] attacker=" .. tostring(attackerGUID) .. " target=" .. tostring(targetGUID) .. " pet=" .. tostring(UnitGUID("pet")) .. " mine=" .. tostring(myMinions[attackerGUID] == true))
     -- In instanced PvP and other identity-restricted contexts (Midnight 12.0+),
     -- PARTY_KILL's GUID payload arrives as secret strings. Tainted code cannot
     -- compare, format, or inspect them (immediate Lua error), and there is no
     -- identity data left to attribute the kill, so bail out instead of crashing.
     if not attackerGUID or not targetGUID then return end
     if issecretvalue and (issecretvalue(attackerGUID) or issecretvalue(targetGUID)) then return end
+    ltks:Print("[LTKS-PK] attacker=" .. tostring(attackerGUID) .. " target=" .. tostring(targetGUID) .. " pet=" .. tostring(UnitGUID("pet")) .. " mine=" .. tostring(myMinions[attackerGUID] == true))
     local playerGUID = UnitGUID("player")
     local petGUID = UnitGUID("pet")
     -- A pet's killing blow counts as the player's kill.
