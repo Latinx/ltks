@@ -2320,7 +2320,7 @@ end
     function events:COMBAT_LOG_EVENT_UNFILTERED(...)
         local _, event, _, sourceGUID, sourceName, sourceFlags, _, destGUID = CombatLogGetCurrentEventInfo()
         if issecretvalue then
-            if (sourceGUID and issecretvalue(sourceGUID)) or (sourceName and issecretvalue(sourceName)) or (destGUID and issecretvalue(destGUID)) then return end
+            if (sourceGUID and issecretvalue(sourceGUID)) or (sourceName and issecretvalue(sourceName)) or (sourceFlags and issecretvalue(sourceFlags)) or (destGUID and issecretvalue(destGUID)) then return end
         end
         -- Any unit under our control that deals damage (pet, guardian, totem)
         -- can land the killing blow; remember it for PARTY_KILL attribution.
