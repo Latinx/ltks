@@ -2020,6 +2020,7 @@ local ltks_ctFrame
 local ltks_ctActive = {}
 
 local ltks_ctQueue = {}
+local ltks_CT_OnUpdate -- forward declaration (assigned below)
 
 local function ltks_ShowNextCT()
 	local entry = tremove(ltks_ctQueue, 1)
@@ -2027,18 +2028,24 @@ local function ltks_ShowNextCT()
 	local fs = ltks_ctFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
 	fs:SetText(entry.msg)
 	fs:SetTextColor(entry.r, entry.g, entry.b)
-	fs:SetPoint("CENTER", ltks_ctFrame, "CENTER", 0, 0)
+	local prev = ltks_ctActive[#ltks_ctActive]
+	fs.spawnY = 0
+	if prev then
+		-- stack 28px above the newest active text (line-height gap, constant as all rise together)
+		fs.spawnY = (prev.spawnY or 0) + 60 * (prev.elapsed_total or 0) + 28
+	end
+	fs:SetPoint("CENTER", ltks_ctFrame, "CENTER", 0, fs.spawnY)
 	fs.elapsed_total = 0
 	tinsert(ltks_ctActive, fs)
 	ltks_ctFrame:SetScript("OnUpdate", ltks_CT_OnUpdate)
 end
 
-local function ltks_CT_OnUpdate(self, elapsed)
+ltks_CT_OnUpdate = function(self, elapsed)
 	for i = #ltks_ctActive, 1, -1 do
 		local fs = ltks_ctActive[i]
 		fs.elapsed_total = (fs.elapsed_total or 0) + elapsed
 		local t = fs.elapsed_total
-		fs:SetPoint("CENTER", ltks_ctFrame, "CENTER", 0, 60 * t)
+		fs:SetPoint("CENTER", ltks_ctFrame, "CENTER", 0, (fs.spawnY or 0) + 60 * t)
 		if t > 1.5 then
 			fs:SetAlpha(max(0, 1 - (t - 1.5)))
 		end
@@ -2048,12 +2055,15 @@ local function ltks_CT_OnUpdate(self, elapsed)
 			tremove(ltks_ctActive, i)
 		end
 	end
-	if #ltks_ctActive == 0 then
-		if #ltks_ctQueue > 0 then
+	-- Release queued texts after a short spacing window so they never overlap
+	-- (all texts rise at the same speed, so the stack gap stays constant)
+	if #ltks_ctQueue > 0 then
+		local newest = ltks_ctActive[#ltks_ctActive]
+		if not newest or (newest.elapsed_total or 0) >= 0.1 then
 			ltks_ShowNextCT()
-		else
-			self:SetScript("OnUpdate", nil)
 		end
+	elseif #ltks_ctActive == 0 then
+		self:SetScript("OnUpdate", nil)
 	end
 end
 
