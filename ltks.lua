@@ -1963,7 +1963,12 @@ function ltks:OnCommReceived(cchan, message, distribution, sender)
 			end
 			if not sound then
 				local ladder = packLadder[ltks.db.profile.soundpack] or packLadder.unreal2003
-				sound = ladder[rxstreak] or ladder[#ladder]
+				sound = ladder[rxstreak]
+				-- LoL only: repeat the final line so every killshot is audible;
+				-- UT keeps its original silence between milestone tiers.
+				if not sound and (ltks.db.profile.soundpack or "unreal2003") == "lol" then
+					sound = ladder[#ladder]
+				end
 			end
 			ltks:Print("[LTKS-RX] rxstreak=" .. tostring(rxstreak) .. " rxmk=" .. tostring(rxmultikill) .. " style=" .. tostring(ltks.db.profile.style) .. " pack=" .. tostring(ltks.db.profile.soundpack) .. " win=" .. tostring(ltks.db.profile.mkwindow) .. " mktime=" .. tostring(ltks.db.profile.mktime) .. " sound=" .. tostring(sound))
 			if sound and playerName == rxkiller then self:ltks_SoundPack(sound) end
