@@ -2318,7 +2318,13 @@ end
     -- back to "Unknown Entity" -- this is the last known damage source, not an
     -- authoritative killer.
     function events:COMBAT_LOG_EVENT_UNFILTERED(...)
-        local _, event, _, sourceGUID, sourceName, sourceFlags, _, destGUID = CombatLogGetCurrentEventInfo()
+        -- Capture the full current combat log entry (standard fields + advanced
+        -- payload) from the API itself, so owner-pair scanning never depends on
+        -- how the event dispatcher forwards its arguments.
+        local n = select("#", CombatLogGetCurrentEventInfo())
+        local info = { CombatLogGetCurrentEventInfo() }
+        local event = info[2]
+        local sourceGUID, sourceName, sourceFlags, destGUID = info[4], info[5], info[6], info[8]
         if issecretvalue then
             if (sourceGUID and issecretvalue(sourceGUID)) or (sourceName and issecretvalue(sourceName)) or (sourceFlags and issecretvalue(sourceFlags)) or (destGUID and issecretvalue(destGUID)) then return end
         end
@@ -2328,12 +2334,10 @@ end
         if sourceGUID and sourceGUID ~= playerGuid and bit.band(sourceFlags, COMBATLOG_OBJECT_AFFILIATION_MINE) > 0 then
             myMinions[sourceGUID] = true
         end
-        -- Advanced-payload owner pairs (the same mechanism the combatLogParser
-        -- project uses): a non-player actor directly followed by the player's
-        -- GUID is one of our pets/guardians, regardless of flag state.
-        local n = select("#", ...)
+        -- Advanced-payload owner pairs (combatLogParser convention): a non-player
+        -- actor directly followed by the player's GUID is one of our minions.
         for i = 12, n - 1 do
-            local unitGuid, ownerGuid = select(i, ...), select(i + 1, ...)
+            local unitGuid, ownerGuid = info[i], info[i + 1]
             if type(unitGuid) == "string" and type(ownerGuid) == "string"
                 and not (issecretvalue and (issecretvalue(unitGuid) or issecretvalue(ownerGuid)))
                 and ownerGuid == playerGuid and unitGuid ~= playerGuid then
