@@ -32,7 +32,7 @@ local deadNameCache = {} -- destGUID -> name from damage/death events (kill attr
 local pendingKills = {} -- retail: unresolved PARTY_KILL victims (guid -> {time}), awaiting UNIT_DIED
 local knownNames = {} -- guid -> name from nameplates/target/mouseover (retail unit cache)
 local recentKills = {} -- guid -> GetTime() of last registered kill (dedupe PK vs pet-auto paths)
-local newestconfigversion = 1
+local newestconfigversion = 2
 local frame, events = CreateFrame("Frame"), {};
 local damageDealers = {}
 
