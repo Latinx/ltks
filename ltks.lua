@@ -61,6 +61,21 @@ local inArena = false
 local inBG = false
 local lastMessage, lastSender, lastTimestamp --Versionchecking duplicate detection
 local soundPath = "Interface\\AddOns\\ltks\\sounds\\"
+-- Per-pack sound tables: multikill chain and streak tiers
+local packChain = {
+	unreal2003 = { "firstblood.ogg", "doublekill.ogg", "multikill.ogg", "monsterkill.ogg", "holyshit.ogg" },
+	lol = { "firstblood.ogg", "doublekill.ogg", "triplekill.ogg", "quadrakill.ogg", "pentakill.ogg", "hexakill.ogg" },
+}
+local packTiers = {
+	unreal2003 = {
+		cycle = true, -- walk the whole set, then cycle
+		list = { "killingspree.ogg", "rampage.ogg", "dominating.ogg", "unstoppable.ogg", "godlike.ogg", "whickedsick.ogg", "impressive.ogg", "outstanding.ogg", "megakill.ogg", "ultrakill.ogg", "eagleeye.ogg", "ownage.ogg", "comboking.ogg", "maniac.ogg", "ludicrouskill.ogg", "bullseye.ogg", "excellent.ogg", "pancake.ogg", "headhunter.ogg", "unreal.ogg", "assasin.ogg", "massacre.ogg", "killingmachine.ogg", "monsterkill.ogg", "holyshit.ogg" },
+	},
+	lol = {
+		cycle = false, -- repeat the final line (Legendary) past the end
+		list = { "killingspree.ogg", "rampage.ogg", "terminated.ogg", "unstoppable.ogg", "godlike.ogg", "legendary.ogg" },
+	},
+}
 
 local randomEmotes = {
 	"AGREE","AMAZE","ANGRY","APOLOGIZE","APPLAUD","BELCH","BLOWKISS","BOGGLE",
@@ -557,7 +572,8 @@ local function giveGeneral()
 				get = "getSoundPack",
 				set = "setSoundPack",
 				values = {
-					unreal2003 = "Unreal 2003"
+					unreal2003 = "Unreal 2003",
+					lol = "League of Legends"
 				},
 				order = 85
 			},
@@ -1473,7 +1489,7 @@ local defaults = {
 		kssoundM = {"firstblood.ogg", "doublekill.ogg", "multikill.ogg", "monsterkill.ogg", "holyshit.ogg"},
 		kssoundP = "prepare.ogg",
 		kssoundE = "finishhim.ogg",
-		kstextM = {"First Blood!", "Double Kill!", "Triple Kill!", "Quadra Kill!", "Penta Kill!"},
+		kstextM = {"First Blood!", "Double Kill!", "Triple Kill!", "Quadra Kill!", "Penta Kill!", "Hexakill!"},
 		lastStreak = 0,
 		killlog = {},
 		damageDealers = {},
@@ -1722,12 +1738,12 @@ function ltks:KillshotTX(txvictim,txtimestamp)
 			mkChain = true;
 		end
 		-- This most like will never be used except in test mode, but lets prevent the error anyways
-		if (multikill > #self.db.profile.kstextM) then multikill = #self.db.profile.kstextM end
+		if (multikill > #(packChain[ltks.db.profile.soundpack] or packChain.unreal2003)) then multikill = #(packChain[ltks.db.profile.soundpack] or packChain.unreal2003) end
 	elseif (lastkill + (ltks.db.profile.mktime or 10)) > txtimestamp then
 		-- Ladies and Gentlemen we have a multikill
 		multikill = multikill + 1;
 		-- This most like will never be used except in test mode, but lets prevent the error anyways
-		if (multikill > #self.db.profile.kstextM) then multikill = #self.db.profile.kstextM end
+		if (multikill > #(packChain[ltks.db.profile.soundpack] or packChain.unreal2003)) then multikill = #(packChain[ltks.db.profile.soundpack] or packChain.unreal2003) end
 	else
 		multikill = 1; -- First Blood starts a new chain
 	end
@@ -1876,7 +1892,8 @@ function ltks:OnCommReceived(cchan, message, distribution, sender)
 				self:ltks_SoundPack(tierSound)
 			elseif rxmultikill > 0 then
 				self:ScrollText(rxkiller .. " got a " .. self.db.profile.kstextM[rxmultikill] .. "!")
-				self:ltks_SoundPack(self.db.profile.kssoundM[rxmultikill])
+				local chain = packChain[ltks.db.profile.soundpack] or packChain.unreal2003
+				self:ltks_SoundPack(chain[rxmultikill])
 			end
 
 			-- We have landed a kill
@@ -1945,38 +1962,17 @@ function ltks:GetKillshotSound(streak)
 			if (ltks.db.profile.ksrank[x] > 0) and (streak >= ltks.db.profile.ksrank[x]) then return ltks.db.profile.kssound[x]; end
 		end
 	else
-		-- UT Style: streak milestones every 5 kills, walking the full sound set
-		-- (cycles so 500-kill streaks keep announcing)
-		local tierSounds = {
-			"killingspree.ogg",   -- 5
-			"rampage.ogg",        -- 10
-			"dominating.ogg",     -- 15
-			"unstoppable.ogg",    -- 20
-			"godlike.ogg",        -- 25
-			"whickedsick.ogg",    -- 30
-			"impressive.ogg",     -- 35
-			"outstanding.ogg",    -- 40
-			"megakill.ogg",       -- 45
-			"ultrakill.ogg",      -- 50
-			"eagleeye.ogg",       -- 55
-			"ownage.ogg",         -- 60
-			"comboking.ogg",      -- 65
-			"maniac.ogg",         -- 70
-			"ludicrouskill.ogg",  -- 75
-			"bullseye.ogg",       -- 80
-			"excellent.ogg",      -- 85
-			"pancake.ogg",        -- 90
-			"headhunter.ogg",     -- 95
-			"unreal.ogg",         -- 100
-			"assasin.ogg",        -- 105
-			"massacre.ogg",       -- 110
-			"killingmachine.ogg", -- 115
-			"monsterkill.ogg",    -- 120
-			"holyshit.ogg",       -- 125
-		}
+		-- UT Style: streak milestones every 5 kills; the sound set walks per pack
+		-- (Unreal 2003 cycles the whole set, League repeats its final line)
+		local pack = packTiers[ltks.db.profile.soundpack] or packTiers.unreal2003
 		if (streak % 5 == 0) then
-			local idx = (streak / 5 - 1) % #tierSounds + 1
-			return tierSounds[idx]
+			local idx = (streak / 5 - 1)
+			if pack.cycle then
+				idx = idx % #pack.list + 1
+			else
+				idx = math.min(idx + 1, #pack.list)
+			end
+			return pack.list[idx]
 		end
 		return
 	end
@@ -2053,6 +2049,9 @@ function ltks:setSoundPack(info, newsoundset)
     if (newsoundset == "unreal2003") then
         self.db.profile.soundpack = newsoundset
         self.db.profile.soundpath = soundPath
+    elseif (newsoundset == "lol") then
+        self.db.profile.soundpack = newsoundset
+        self.db.profile.soundpath = soundPath .. "\\lol\\"
     else
         ltks:Print("Error: That is not a valid option")
     end
