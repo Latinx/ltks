@@ -1919,7 +1919,7 @@ function ltks:OnCommReceived(cchan, message, distribution, sender)
 				end
 				local labels = packTierLabels[ltks.db.profile.soundpack] or packTierLabels.unreal2003
 				if labels[idx] then
-					RaidWarningFrame:AddMessage(labels[idx], 1, 0.82, 0)
+					RaidWarningFrame:AddMessage(labels[idx], { r = 1, g = 0.82, b = 0 })
 				end
 			end
 			if not sound and rxmultikill > 0 then
