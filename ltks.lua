@@ -81,6 +81,11 @@ local packTiers = {
 	},
 }
 
+local packTierLabels = {
+	unreal2003 = { "Killing Spree!", "Rampage!", "Dominating!", "Unstoppable!", "Godlike!", "Wicked Sick!", "Impressive!", "Outstanding!", "Mega Kill!", "Ultra Kill!", "Eagle Eye!", "Ownage!", "Combo King!", "Maniac!", "Ludicrous Kill!", "Bullseye!", "Excellent!", "Pancake!", "Head Hunter!", "Unreal!", "Assassin!", "Massacre!", "Killing Machine!", "Monster Kill!", "Holy Shit!" },
+	lol = { "Killing Spree!", "Rampage!", "Terminated!", "Unstoppable!", "Godlike!", "Legendary!" },
+}
+
 local randomEmotes = {
 	"AGREE","AMAZE","ANGRY","APOLOGIZE","APPLAUD","BELCH","BLOWKISS","BOGGLE",
 	"BONK","BORED","BOUNCE","BOW","BRB","BURP","BYE","CACKLE","CALM",
@@ -1903,6 +1908,20 @@ function ltks:OnCommReceived(cchan, message, distribution, sender)
 			-- Process multikill and play appropiate sound and text
 			-- Priority: milestone tier > multikill chain > base announcer
 			local sound = ltks:GetKillshotSound(rxstreak)
+			if sound and playerName == rxkiller and ltks.db.profile.style == "ut" then
+				-- Streak milestone: announce big on the raid warning frame
+				local tierPack = packTiers[ltks.db.profile.soundpack] or packTiers.unreal2003
+				local idx = (rxstreak / 5 - 1)
+				if tierPack.cycle then
+					idx = idx % #tierPack.list + 1
+				else
+					idx = math.min(idx + 1, #tierPack.list)
+				end
+				local labels = packTierLabels[ltks.db.profile.soundpack] or packTierLabels.unreal2003
+				if labels[idx] then
+					RaidWarningFrame:AddMessage(labels[idx], 1, 0.82, 0)
+				end
+			end
 			if not sound and rxmultikill > 0 then
 				local chain = packChain[ltks.db.profile.soundpack] or packChain.unreal2003
 				sound = chain[math.min(rxmultikill, #chain)]
@@ -2000,6 +2019,20 @@ end
 local ltks_ctFrame
 local ltks_ctActive = {}
 
+local ltks_ctQueue = {}
+
+local function ltks_ShowNextCT()
+	local entry = tremove(ltks_ctQueue, 1)
+	if not entry then return end
+	local fs = ltks_ctFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+	fs:SetText(entry.msg)
+	fs:SetTextColor(entry.r, entry.g, entry.b)
+	fs:SetPoint("CENTER", ltks_ctFrame, "CENTER", 0, 0)
+	fs.elapsed_total = 0
+	tinsert(ltks_ctActive, fs)
+	ltks_ctFrame:SetScript("OnUpdate", ltks_CT_OnUpdate)
+end
+
 local function ltks_CT_OnUpdate(self, elapsed)
 	for i = #ltks_ctActive, 1, -1 do
 		local fs = ltks_ctActive[i]
@@ -2016,7 +2049,11 @@ local function ltks_CT_OnUpdate(self, elapsed)
 		end
 	end
 	if #ltks_ctActive == 0 then
-		self:SetScript("OnUpdate", nil)
+		if #ltks_ctQueue > 0 then
+			ltks_ShowNextCT()
+		else
+			self:SetScript("OnUpdate", nil)
+		end
 	end
 end
 
@@ -2027,13 +2064,10 @@ local function ltks_ShowScrollText(msg, r, g, b)
 		ltks_ctFrame:SetPoint("CENTER", 0, -120)
 		ltks_ctFrame:SetFrameStrata("HIGH")
 	end
-	local fs = ltks_ctFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-	fs:SetText(msg)
-	fs:SetTextColor(r or 1, g or 0.1, b or 0.1)
-	fs:SetPoint("CENTER", ltks_ctFrame, "CENTER", 0, 0)
-	fs.elapsed_total = 0
-	tinsert(ltks_ctActive, fs)
-	ltks_ctFrame:SetScript("OnUpdate", ltks_CT_OnUpdate)
+	tinsert(ltks_ctQueue, { msg = msg, r = r or 1, g = g or 0.1, b = b or 0.1 })
+	if #ltks_ctActive == 0 then
+		ltks_ShowNextCT()
+	end
 end
 
 function ltks:ScrollText(msg)
