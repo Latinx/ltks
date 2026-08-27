@@ -50,22 +50,19 @@ end
 -- restriction can never crash the addon.
 local cleuRegistered = false
 local function TryRegisterCLEU()
-	if cleuRegistered or not IsRetail() then return end
-	if InCombatLockdown and InCombatLockdown() then ltks:Print("[LTKS-CLEU] deferred: in combat"); return end
-	local inInstance, instanceType = IsInInstance()
-	-- IsInInstance() returns (false, "none") in the open world: "none" is a
-	-- truthy string, so gate on the BOOLEAN or CLEU never registers outside
-	-- instances.
-	if inInstance then ltks:Print("[LTKS-CLEU] deferred: instance=" .. tostring(instanceType)); return end
-	local cleuValid = C_EventUtils and C_EventUtils.IsEventValid and C_EventUtils.IsEventValid("COMBAT_LOG_EVENT_UNFILTERED")
-	ltks:Print("[LTKS-CLEU] api: C_CombatLog=" .. tostring(C_CombatLog ~= nil) .. " legacyGlobal=" .. tostring(CombatLogGetCurrentEventInfo ~= nil) .. " IsEventValid=" .. tostring(cleuValid) .. " EventCB=" .. tostring(Event ~= nil and Event.RegisterCallback ~= nil))
-	if not cleuValid then
-		ltks:Print("[LTKS-CLEU] IsEventValid=false")
-		return
-	end
+	-- Midnight (12.0+) refuses third-party registration of the unfiltered
+	-- combat log: RegisterEvent returns false, and merely attempting it fires
+	-- ADDON_ACTION_FORBIDDEN (spamming error addons like BugGrabber). The CLEU
+	-- path is classic-only; retail kills come from PARTY_KILL/UNIT_DIED.
+	if cleuRegistered or IsRetail() then return end
+	if InCombatLockdown and InCombatLockdown() then return end
+	local inInstance = IsInInstance()
+	-- IsInInstance() returns (false, "none") in the open world: gate on the
+	-- boolean or CLEU never registers outside instances.
+	if inInstance then return end
+	if C_EventUtils and C_EventUtils.IsEventValid and not C_EventUtils.IsEventValid("COMBAT_LOG_EVENT_UNFILTERED") then return end
 	local ok, registered = pcall(frame.RegisterEvent, frame, "COMBAT_LOG_EVENT_UNFILTERED")
 	cleuRegistered = ok and registered ~= false
-	ltks:Print("[LTKS-CLEU] register ok=" .. tostring(ok) .. " registered=" .. tostring(registered) .. " -> " .. tostring(cleuRegistered))
 end
 local targetList = {} -- Used for Execute
 local playerName = UnitName("player")
@@ -2359,8 +2356,26 @@ end
 
 	function events:UNIT_DIED(unitGUID)
 		if issecretvalue and unitGUID and issecretvalue(unitGUID) then return end
-		local petTarget = UnitGUID("pettarget")
-		ltks:Print("[LTKS-UD] guid=" .. tostring(unitGUID) .. " pettarget=" .. tostring(petTarget) .. " match=" .. tostring(petTarget == unitGUID) .. " pending=" .. tostring(pendingKills[unitGUID] ~= nil) .. " name=" .. tostring(deadNameCache[unitGUID] or knownNames[unitGUID] or GetNameFromGUID(unitGUID)))
+		local ptOk, petTarget = pcall(UnitGUID, "pettarget")
+		local ptStr = "?"
+		if ptOk and petTarget then
+			local sOk, s = pcall(tostring, petTarget)
+			ptStr = (sOk and s) or "<secret>"
+		end
+		local match = false
+		if ptOk and petTarget and unitGUID then
+			local mOk, m = pcall(function() return petTarget == unitGUID end)
+			match = mOk and m
+		end
+		local nmStr = "?"
+		do
+			local nOk, nm = pcall(GetNameFromGUID, unitGUID)
+			if nOk and nm then
+				local sOk, s = pcall(tostring, nm)
+				nmStr = (sOk and s) or "<secret>"
+			end
+		end
+		ltks:Print("[LTKS-UD] guid=" .. tostring(unitGUID) .. " pettarget=" .. ptStr .. " match=" .. tostring(match) .. " pending=" .. tostring(pendingKills[unitGUID] ~= nil) .. " name=" .. nmStr)
 		local rec = pendingKills[unitGUID]
 		if rec then
 			pendingKills[unitGUID] = nil
