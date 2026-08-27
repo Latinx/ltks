@@ -1742,7 +1742,9 @@ function ltks:PartyKillHandler(attackerGUID, targetGUID)
     -- identity data left to attribute the kill, so bail out instead of crashing.
     if not attackerGUID or not targetGUID then return end
     if issecretvalue and (issecretvalue(attackerGUID) or issecretvalue(targetGUID)) then return end
-    ltks:Print("[LTKS-PK] attacker=" .. tostring(attackerGUID) .. " target=" .. tostring(targetGUID) .. " pet=" .. tostring(UnitGUID("pet")) .. " mine=" .. tostring(myMinions[attackerGUID] == true))
+    pcall(function()
+        ltks:Print("[LTKS-PK] attacker=" .. tostring(attackerGUID) .. " target=" .. tostring(targetGUID) .. " pet=" .. tostring(UnitGUID("pet")) .. " mine=" .. tostring(myMinions[attackerGUID] == true))
+    end)
     local playerGUID = UnitGUID("player")
     local petGUID = UnitGUID("pet")
     -- A pet's killing blow counts as the player's kill.
