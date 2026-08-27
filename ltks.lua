@@ -2416,8 +2416,11 @@ end
 	-- are neither our target nor focus (off-target pet kills).
 	local function ltks_StoreUnitName(unit)
 		if not unit then return end
-		local guid, name = UnitGUID(unit), UnitName(unit)
-		if guid and name and not (issecretvalue and (issecretvalue(guid) or issecretvalue(name))) then
+		-- Nameplate units can vanish between the event and this call, and
+		-- restricted contexts may throw on unit reads; pcall both.
+		local gOk, guid = pcall(UnitGUID, unit)
+		local nOk, name = pcall(UnitName, unit)
+		if gOk and nOk and guid and name and not (issecretvalue and (issecretvalue(guid) or issecretvalue(name))) then
 			knownNames[guid] = name
 			local c = 0
 			for _ in pairs(knownNames) do c = c + 1 end
