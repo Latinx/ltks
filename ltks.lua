@@ -2324,8 +2324,21 @@ end
         end
         -- Any unit under our control that deals damage (pet, guardian, totem)
         -- can land the killing blow; remember it for PARTY_KILL attribution.
-        if sourceGUID and sourceGUID ~= UnitGUID("player") and bit.band(sourceFlags, COMBATLOG_OBJECT_AFFILIATION_MINE) > 0 then
+        local playerGuid = UnitGUID("player")
+        if sourceGUID and sourceGUID ~= playerGuid and bit.band(sourceFlags, COMBATLOG_OBJECT_AFFILIATION_MINE) > 0 then
             myMinions[sourceGUID] = true
+        end
+        -- Advanced-payload owner pairs (the same mechanism the combatLogParser
+        -- project uses): a non-player actor directly followed by the player's
+        -- GUID is one of our pets/guardians, regardless of flag state.
+        local n = select("#", ...)
+        for i = 12, n - 1 do
+            local unitGuid, ownerGuid = select(i, ...), select(i + 1, ...)
+            if type(unitGuid) == "string" and type(ownerGuid) == "string"
+                and not (issecretvalue and (issecretvalue(unitGuid) or issecretvalue(ownerGuid)))
+                and ownerGuid == playerGuid and unitGuid ~= playerGuid then
+                myMinions[unitGuid] = true
+            end
         end
         if destGUID ~= UnitGUID("player") then return end
         if string.find(event, "_DAMAGE") then
