@@ -27,6 +27,7 @@ local timestamp = 0
 -- restricts identity in instanced PvP, dungeons and raids).
 local lastDamageSource = nil
 local mkChain = false -- multikill chain active (combat window mode)
+local myMinions = {} -- MINE-affiliated damage sources: pets, guardians, totems
 local newestconfigversion = 1
 local frame, events = CreateFrame("Frame"), {};
 local damageDealers = {}
@@ -1730,7 +1731,7 @@ function ltks:PartyKillHandler(attackerGUID, targetGUID)
     local playerGUID = UnitGUID("player")
     local petGUID = UnitGUID("pet")
     -- A pet's killing blow counts as the player's kill.
-    if attackerGUID ~= playerGUID and attackerGUID ~= petGUID then return end
+    if attackerGUID ~= playerGUID and attackerGUID ~= petGUID and not myMinions[attackerGUID] then return end
     local targetName = GetNameFromGUID(targetGUID)
     if targetName then
         local isPlayer = targetGUID:sub(1, 6) == "Player"
@@ -2298,6 +2299,7 @@ function events:PLAYER_REGEN_ENABLED()
         mkChain = false
         multikill = 0
     end
+    wipe(myMinions)
     lastDamageSource = nil
     TryRegisterCLEU()
 end
@@ -2316,9 +2318,14 @@ end
     -- back to "Unknown Entity" -- this is the last known damage source, not an
     -- authoritative killer.
     function events:COMBAT_LOG_EVENT_UNFILTERED(...)
-        local _, event, _, sourceGUID, sourceName, _, _, destGUID = CombatLogGetCurrentEventInfo()
+        local _, event, _, sourceGUID, sourceName, sourceFlags, _, destGUID = CombatLogGetCurrentEventInfo()
         if issecretvalue then
             if (sourceGUID and issecretvalue(sourceGUID)) or (sourceName and issecretvalue(sourceName)) or (destGUID and issecretvalue(destGUID)) then return end
+        end
+        -- Any unit under our control that deals damage (pet, guardian, totem)
+        -- can land the killing blow; remember it for PARTY_KILL attribution.
+        if sourceGUID and sourceGUID ~= UnitGUID("player") and bit.band(sourceFlags, COMBATLOG_OBJECT_AFFILIATION_MINE) > 0 then
+            myMinions[sourceGUID] = true
         end
         if destGUID ~= UnitGUID("player") then return end
         if string.find(event, "_DAMAGE") then
