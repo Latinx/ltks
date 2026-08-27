@@ -2410,9 +2410,11 @@ end
         end
         -- Capture the full current combat log entry (standard fields + advanced
         -- payload) from the API itself, so owner-pair scanning never depends on
-        -- how the event dispatcher forwards its arguments.
-        local n = select("#", CombatLogGetCurrentEventInfo())
-        local info = { CombatLogGetCurrentEventInfo() }
+        -- how the event dispatcher forwards its arguments. Midnight moved the
+        -- function to C_CombatLog; the legacy global only exists pre-12.0.
+        local getCurrentEvent = C_CombatLog and C_CombatLog.GetCurrentEventInfo or CombatLogGetCurrentEventInfo
+        local n = select("#", getCurrentEvent())
+        local info = { getCurrentEvent() }
         local event = info[2]
         local sourceGUID, sourceName, sourceFlags, destGUID, destName = info[4], info[5], info[6], info[8], info[9]
         if issecretvalue then
