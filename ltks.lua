@@ -1544,8 +1544,11 @@ function ltks:OnInitialize()
 
 	self:SetSinkStorage(self.db.profile)
 
-	-- Increment newestconfigversion to reset db to defaults when needed
-	if (ltks.db.profile.configversion < newestconfigversion ) then
+	-- Increment newestconfigversion to reset db to defaults when needed.
+	-- Legacy profiles may lack configversion entirely (nil): treat as 0 so
+	-- every pre-version profile resets exactly once.
+	local cfgVersion = ltks.db.profile.configversion or 0
+	if (cfgVersion < newestconfigversion) then
 		ltks:Print("Config outdated, reverting to defaults.")
 		ltks.db:ResetProfile()
 	end
