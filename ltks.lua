@@ -2315,6 +2315,19 @@ function events:PLAYER_REGEN_ENABLED()
     TryRegisterCLEU()
 end
 
+	local function ltks_DumpCurrentEntry(tag)
+		if not (C_CombatLog and C_CombatLog.GetCurrentEntryInfo) then return end
+		pcall(function()
+			local n = select("#", C_CombatLog.GetCurrentEntryInfo())
+			local dump = {}
+			for i = 1, n do
+				local v = select(i, C_CombatLog.GetCurrentEntryInfo())
+				local ok, s = pcall(tostring, v)
+				dump[i] = (ok and s) or "<secret>"
+			end
+			ltks:Print("[LTKS-CE-" .. tag .. "] n=" .. n .. " " .. table.concat(dump, "|"))
+		end)
+	end
 	function events:PARTY_KILL(...)
 		local dump = {}
 		for i = 1, select("#", ...) do
@@ -2322,6 +2335,7 @@ end
 			dump[i] = (ok and v) or "<secret>"
 		end
 		ltks:Print("[LTKS-PKARGS] n=" .. select("#", ...) .. " " .. table.concat(dump, "|"))
+		ltks_DumpCurrentEntry("PK")
 		ltks:PartyKillHandler(...)
 	end
 
