@@ -1915,6 +1915,7 @@ function ltks:OnCommReceived(cchan, message, distribution, sender)
 
 			-- We have landed a kill
 			if playerName == rxkiller then
+				if (ltks.db.profile.dochatbox) then ltks:Print(killshottext) end
 				local setMaxStreak = false
 				
 				-- Increment maxstreak if this is a record high
