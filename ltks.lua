@@ -27,7 +27,6 @@ local timestamp = 0
 -- restricts identity in instanced PvP, dungeons and raids).
 local lastDamageSource = nil
 local mkChain = false -- multikill chain active (combat window mode)
-local lastFeedPrint = 0 -- kill feed throttle timestamp
 local newestconfigversion = 1
 local frame, events = CreateFrame("Frame"), {};
 local damageDealers = {}
@@ -1944,11 +1943,8 @@ function ltks:OnCommReceived(cchan, message, distribution, sender)
 				--fixme this count my be inaccurate due to the way lua handles tables without numeric index
 				if (ltks.db.profile.dochatbox) then ltks:Print("You have killed "..rxvictim.." "..#ltks.db.profile.killList[rxvictim].." times.") end
 			elseif (ltks.db.profile.dokillfeed) then
-				-- Kill feed: other players' killshots in chat, throttled to avoid spam
-				if (GetTime() - lastFeedPrint >= 5) then
-					ltks:Print(killshottext)
-					lastFeedPrint = GetTime()
-				end
+				-- Kill feed: other players' killshots in chat
+				ltks:Print(killshottext)
 			end
 		end
 	end
