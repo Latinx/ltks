@@ -2169,6 +2169,7 @@ function ltks:ltks_SoundPack(sound)
 	if self.db.profile.soundpack == "lol" and not path:find("lol\\", -4, true) then
 		path = soundPath .. "lol\\"
 	end
+	if ltks.db.profile.dopve then ltks:Print("[LTKS-SFX] " .. path .. sound) end
 	ltks:SoundEventHandler(nil, path .. sound)
 end
 
