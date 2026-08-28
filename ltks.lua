@@ -2607,7 +2607,7 @@ function events:CHAT_MSG_SYSTEM(msg, ...)
 end
 
 function ltks:OnEnable()
-	if ltks.db.profile.dopve then ltks:Print("[LTKS-LOAD] code version=" .. version .. " toc=12.1.8") end
+	if ltks.db.profile.dopve then ltks:Print("[LTKS-LOAD] code version=" .. version .. " toc=12.1.9") end
 	--self:RegisterEvent("CHAT_MSG_ADDON", "AddonMessageHandler")
 	--OnEvent runs the function events:event
 	frame:SetScript("OnEvent", function(self, event, ...)
