@@ -1546,6 +1546,52 @@ function ltks:OnInitialize()
 
 	self:SetSinkStorage(self.db.profile)
 
+	-- Saved-variable data must never be able to break the addon: repair the
+	-- fragile fields to sane types at load. Malformed values (old builds,
+	-- hand-edited SV files) previously made options builders throw, which
+	-- killed the Settings registration and hid every config tab.
+	do
+		local d = self.db.defaults.profile
+		local p = self.db.profile
+		for _, field in ipairs({ "killlog", "kssound", "ksrank" }) do
+			local v = p[field]
+			if type(v) ~= "table" then
+				p[field] = d[field]
+			else
+				for k, entry in pairs(v) do
+					if field == "ksrank" then
+						p[field][k] = tonumber(entry) or 0
+					elseif type(entry) ~= "string" then
+						p[field][k] = tostring(entry)
+					end
+				end
+			end
+		end
+		for _, field in ipairs({ "killList", "deathList" }) do
+			local v = p[field]
+			if type(v) ~= "table" then
+				p[field] = {}
+			else
+				for k, entries in pairs(v) do
+					if type(entries) ~= "table" then p[field][k] = {} end
+				end
+			end
+		end
+		for _, field in ipairs({ "kstext", "ksemote", "duelcustomemote" }) do
+			if type(p[field]) ~= "string" then p[field] = d[field] end
+		end
+		if type(p.kstextM) == "table" then
+			for k, entry in pairs(p.kstextM) do
+				if type(entry) ~= "string" then p.kstextM[k] = tostring(entry) end
+			end
+		else
+			p.kstextM = d.kstextM
+		end
+		for _, field in ipairs({ "soundpath", "soundpack", "style" }) do
+			if type(p[field]) ~= "string" then p[field] = d[field] end
+		end
+	end
+
 	-- Increment newestconfigversion to reset db to defaults when needed.
 	-- Legacy profiles may lack configversion entirely (nil): treat as 0 so
 	-- every pre-version profile resets exactly once.
@@ -1570,14 +1616,27 @@ function ltks:OnInitialize()
 	-- Setup Config Screens
 	local AceConfigRegistry = LibStub("AceConfigRegistry-3.0")
 
-	AceConfigRegistry:RegisterOptionsTable("LT KillShot", giveOptions)
-	AceConfigRegistry:RegisterOptionsTable("LT KillShot General", giveGeneral)
-	AceConfigRegistry:RegisterOptionsTable("LT KillShot Broadcasts", giveBroadcasts)
-	AceConfigRegistry:RegisterOptionsTable("LT KillShot Screenshots", giveScreenshots)
-	AceConfigRegistry:RegisterOptionsTable("LT KillShot Duels", giveDuels)
-	AceConfigRegistry:RegisterOptionsTable("LT KillShot Ranks", giveRanks)
-	AceConfigRegistry:RegisterOptionsTable("LT KillShot File Setup", giveSoundFileSetup)
-	AceConfigRegistry:RegisterOptionsTable("LT KillShot Output", giveOutput)	
+	-- A corrupt SavedVariable value can make an options builder throw; that
+	-- kills the Settings registration (missing config tabs). Wrap every
+	-- builder so the worst case is an empty tab, never a dead registration.
+	local function safeOptions(builder)
+		return function(...)
+			local ok, result = pcall(builder, ...)
+			if not ok then
+				ltks:Print("[LTKS-CFG] options error (report this): " .. tostring(result))
+				return {}
+			end
+			return result
+		end
+	end
+	AceConfigRegistry:RegisterOptionsTable("LT KillShot", safeOptions(giveOptions))
+	AceConfigRegistry:RegisterOptionsTable("LT KillShot General", safeOptions(giveGeneral))
+	AceConfigRegistry:RegisterOptionsTable("LT KillShot Broadcasts", safeOptions(giveBroadcasts))
+	AceConfigRegistry:RegisterOptionsTable("LT KillShot Screenshots", safeOptions(giveScreenshots))
+	AceConfigRegistry:RegisterOptionsTable("LT KillShot Duels", safeOptions(giveDuels))
+	AceConfigRegistry:RegisterOptionsTable("LT KillShot Ranks", safeOptions(giveRanks))
+	AceConfigRegistry:RegisterOptionsTable("LT KillShot File Setup", safeOptions(giveSoundFileSetup))
+	AceConfigRegistry:RegisterOptionsTable("LT KillShot Output", safeOptions(giveOutput))	
 	
 	local AceConfigDialog = LibStub("AceConfigDialog-3.0")
 	
@@ -2223,7 +2282,9 @@ end
 
 function ltks:getKillLog()
 	local plog = ""
-	for _, v in ipairs(ltks.db.profile.killlog) do plog = plog .. v .. "\n" end
+	for _, v in ipairs(ltks.db.profile.killlog) do
+		if type(v) == "string" then plog = plog .. v .. "\n" end
+	end
 	return plog
 end
 
