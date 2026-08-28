@@ -2161,10 +2161,11 @@ end
 function ltks:ltks_SoundPack(sound)
 	if not sound then return end
 	local path = self.db.profile.soundpath or soundPath
-	-- The LoL pack lives in sounds\lol\; a stored soundpath that drifted
-	-- (old migration, profile import) resolves lol-only files against the root
-	-- and plays nothing while UT's root files still work. Derive the directory
-	-- from the pack so the pack always plays.
+	-- Stored paths can carry doubled separators (e.g. "...sounds\\lol\");
+	-- WoW's file loader is strict and PlaySoundFile fails those silently.
+	-- Collapse runs first, then derive the directory from the pack so a
+	-- drifted path can never resolve lol-only files against the wrong dir.
+	path = path:gsub("\\\\+", "\\")
 	if self.db.profile.soundpack == "lol" and not path:find("lol\\", -4, true) then
 		path = soundPath .. "lol\\"
 	end
