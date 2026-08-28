@@ -1985,12 +1985,12 @@ function ltks:OnCommReceived(cchan, message, distribution, sender)
 			end
 			if not sound then
 				local ladder = packLadder[ltks.db.profile.soundpack] or packLadder.unreal2003
-				sound = ladder[rxstreak]
-				-- LoL only: repeat the final line so every killshot is audible;
-				-- UT keeps its original silence between milestone tiers.
-				if not sound and (ltks.db.profile.soundpack or "unreal2003") == "lol" then
-					sound = ladder[#ladder]
-				end
+				-- Chain restart (multikill window expired): start the sequence
+				-- over at First Blood. A streak-indexed ladder would announce
+				-- the capped line (e.g. Legendary) for a mid-streak gap kill,
+				-- which reads as a bug; tiers at 5/10/15/... still carry the
+				-- streak milestones.
+				sound = ladder[1]
 			end
 			if ltks.db.profile.dopve then
 				ltks:Print("[LTKS-RX] rxstreak=" .. tostring(rxstreak) .. " rxmk=" .. tostring(rxmultikill) .. " style=" .. tostring(ltks.db.profile.style) .. " pack=" .. tostring(ltks.db.profile.soundpack) .. " win=" .. tostring(ltks.db.profile.mkwindow) .. " mktime=" .. tostring(ltks.db.profile.mktime) .. " sound=" .. tostring(sound))
