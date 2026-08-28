@@ -10,7 +10,7 @@
 --Version bump and changelog for 12.0.7 changes
 
 
-local version = "12.1.17"
+local version = "12.1.18"
 local databaseversion = "1"
 local addonName, ns = ...
 local streak = 0
@@ -2707,7 +2707,7 @@ function events:CHAT_MSG_SYSTEM(msg, ...)
 end
 
 function ltks:OnEnable()
-	if ltks.db.profile.dopve then ltks:Print("[LTKS-LOAD] code version=" .. version .. " toc=12.1.17") end
+	if ltks.db.profile.dopve then ltks:Print("[LTKS-LOAD] code version=" .. version .. " toc=12.1.18") end
 	--self:RegisterEvent("CHAT_MSG_ADDON", "AddonMessageHandler")
 	--OnEvent runs the function events:event
 	frame:SetScript("OnEvent", function(self, event, ...)
