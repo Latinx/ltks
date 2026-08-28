@@ -2152,10 +2152,16 @@ function ltks:VersionCheck()
 end
 
 function ltks:ltks_SoundPack(sound)
-	-- FIXME	
-	if not sound then sound = 1 end
-    local soundfile = self.db.profile.soundpath .. sound
-    ltks:SoundEventHandler(nil, soundfile)
+	if not sound then return end
+	local path = self.db.profile.soundpath or soundPath
+	-- The LoL pack lives in sounds\lol\; a stored soundpath that drifted
+	-- (old migration, profile import) resolves lol-only files against the root
+	-- and plays nothing while UT's root files still work. Derive the directory
+	-- from the pack so the pack always plays.
+	if self.db.profile.soundpack == "lol" and not path:find("lol\\", -4, true) then
+		path = soundPath .. "lol\\"
+	end
+	ltks:SoundEventHandler(nil, path .. sound)
 end
 
 function ltks:getSoundPack()
