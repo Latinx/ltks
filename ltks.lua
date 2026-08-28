@@ -1581,15 +1581,30 @@ function ltks:OnInitialize()
 	
 	local AceConfigDialog = LibStub("AceConfigDialog-3.0")
 	
-	local _, mainCategoryID = AceConfigDialog:AddToBlizOptions("LT KillShot", "LT KillShot")
-	AceConfigDialog:AddToBlizOptions("LT KillShot General", "General", "LT KillShot")
-	AceConfigDialog:AddToBlizOptions("LT KillShot Broadcasts", "Broadcasts", "LT KillShot")
-	AceConfigDialog:AddToBlizOptions("LT KillShot Screenshots", "Screenshots", "LT KillShot")
-	AceConfigDialog:AddToBlizOptions("LT KillShot Duels", "Duels", "LT KillShot")
-	AceConfigDialog:AddToBlizOptions("LT KillShot Ranks", "Ranks", "LT KillShot")
-	-- Clean up UI
-	-- AceConfigDialog:AddToBlizOptions("LT KillShot File Setup", "Sound File Setup", "LT KillShot")
-	AceConfigDialog:AddToBlizOptions("LT KillShot Output", "Combat Text Output", "LT KillShot")
+	-- The Settings system can be unready when the addon loads (Midnight):
+	-- the main category registration silently fails and every child then
+	-- errors "The parent category 'LT KillShot' was not found". Register
+	-- defensively and retry until the parent exists; children only register
+	-- once the parent is in place.
+	local mainCategoryID
+	local retries = 0
+	local function RegisterBlizOptions()
+		if mainCategoryID then return end
+		local ok, id = pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot", "LT KillShot")
+		if not ok or not id then
+			retries = retries + 1
+			if retries < 10 then C_Timer.After(1, RegisterBlizOptions) end
+			return
+		end
+		mainCategoryID = id
+		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot General", "General", "LT KillShot")
+		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot Broadcasts", "Broadcasts", "LT KillShot")
+		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot Screenshots", "Screenshots", "LT KillShot")
+		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot Duels", "Duels", "LT KillShot")
+		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot Ranks", "Ranks", "LT KillShot")
+		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot Output", "Combat Text Output", "LT KillShot")
+	end
+	RegisterBlizOptions()
 
 	-- Setup slash commands
 	-- The triple call fixes bug that doesn't open on first run and expans the sub pages
