@@ -1590,9 +1590,12 @@ function ltks:OnInitialize()
 	local retries = 0
 	local function RegisterBlizOptions()
 		if mainCategoryID then return end
-		local ok, _, id = pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot", "LT KillShot")
+		local ok, err, id = pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot", "LT KillShot")
 		if not ok or not id then
 			retries = retries + 1
+			if retries == 1 or retries % 5 == 0 then
+				ltks:Print("[LTKS-CFG] settings registration failed: " .. tostring(err) .. " (retry " .. retries .. "/10)")
+			end
 			if retries < 10 then C_Timer.After(1, RegisterBlizOptions) end
 			return
 		end
