@@ -1594,6 +1594,13 @@ function ltks:OnInitialize()
 	-- Setup slash commands
 	-- The triple call fixes bug that doesn't open on first run and expans the sub pages
 	local function OpenSettings()
+		if InCombatLockdown() then
+			-- The settings panel is protected in combat; opening it there is
+			-- blocked (ADDON_ACTION_BLOCKED) and flags the addon for the
+			-- session. Retry once combat ends.
+			C_Timer.After(0.5, OpenSettings)
+			return
+		end
 		if mainCategoryID then
 			Settings.OpenToCategory(mainCategoryID)
 		else
