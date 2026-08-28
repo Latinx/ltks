@@ -1912,13 +1912,16 @@ function ltks:OnCommReceived(cchan, message, distribution, sender)
 			local killKey = rxkiller .. "|" .. rxvictim .. "|" .. tostring(rxtimestamp)
 			if recentKills[killKey] then return end
 			recentKills[killKey] = true
-			-- Keep recentKills small
+			-- Keep recentKills small. Never prune the key we just added: the
+			-- kill is broadcast on two channels, the second receipt arrives
+			-- milliseconds later, and an arbitrary prune can delete the dedupe
+			-- key in that gap (duplicate renders).
 			local count = 0
 			for _ in pairs(recentKills) do count = count + 1 end
 			if count > 20 then
-				local oldest_key
-				for k in pairs(recentKills) do oldest_key = k break end
-				recentKills[oldest_key] = nil
+				for k in pairs(recentKills) do
+					if k ~= killKey then recentKills[k] = nil break end
+				end
 			end
 			-- Set duplicate prevention variables
 			lastrxkiller, lastrxvictim, lastrxtimestamp = rxkiller, rxvictim, rxtimestamp
