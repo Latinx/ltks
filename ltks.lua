@@ -1659,6 +1659,7 @@ function ltks:OnInitialize()
 			return
 		end
 		mainCategoryID = id
+		ltks:Print("[LTKS-CFG] category registered (id=" .. tostring(id) .. ")")
 		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot General", "General", "LT KillShot")
 		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot Broadcasts", "Broadcasts", "LT KillShot")
 		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot Screenshots", "Screenshots", "LT KillShot")
@@ -1667,6 +1668,12 @@ function ltks:OnInitialize()
 		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot Output", "Combat Text Output", "LT KillShot")
 	end
 	RegisterBlizOptions()
+	C_Timer.After(2, function()
+		if Settings and Settings.GetCanvasLayoutCategory then
+			local cat = Settings.GetCanvasLayoutCategory("LT KillShot")
+			ltks:Print("[LTKS-CFG] category present after registration: " .. tostring(cat ~= nil))
+		end
+	end)
 
 	-- Setup slash commands
 	-- The triple call fixes bug that doesn't open on first run and expans the sub pages
