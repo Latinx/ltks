@@ -1959,9 +1959,14 @@ function ltks:OnCommReceived(cchan, message, distribution, sender)
 			-- Send to sink for local output
 			self:ScrollText(killshottext)
 			
-			-- Process multikill and play appropiate sound and text
-			-- Priority: milestone tier > multikill chain > base announcer
-			local sound = ltks:GetKillshotSound(rxstreak)
+			-- Process multikill and play appropriate sound and text
+			-- Own kills: milestone tier > multikill chain > First Blood.
+			-- Other players' kills: multikill chain only (Double Kill and
+			-- above) -- no ranks or tiers, so the feed stays listenable.
+			local sound
+			if playerName == rxkiller then
+				sound = ltks:GetKillshotSound(rxstreak)
+			end
 			if sound and playerName == rxkiller and ltks.db.profile.style == "ut" then
 				-- Streak milestone: announce big on the raid warning frame
 				local tierPack = packTiers[ltks.db.profile.soundpack] or packTiers.unreal2003
@@ -1983,7 +1988,7 @@ function ltks:OnCommReceived(cchan, message, distribution, sender)
 					self:ScrollText(rxkiller .. " got a " .. self.db.profile.kstextM[rxmultikill] .. "!")
 				end
 			end
-			if not sound then
+			if not sound and playerName == rxkiller then
 				local ladder = packLadder[ltks.db.profile.soundpack] or packLadder.unreal2003
 				-- Chain restart (multikill window expired): start the sequence
 				-- over at First Blood. A streak-indexed ladder would announce
@@ -1995,7 +2000,7 @@ function ltks:OnCommReceived(cchan, message, distribution, sender)
 			if ltks.db.profile.dopve then
 				ltks:Print("[LTKS-RX] rxstreak=" .. tostring(rxstreak) .. " rxmk=" .. tostring(rxmultikill) .. " style=" .. tostring(ltks.db.profile.style) .. " pack=" .. tostring(ltks.db.profile.soundpack) .. " win=" .. tostring(ltks.db.profile.mkwindow) .. " mktime=" .. tostring(ltks.db.profile.mktime) .. " sound=" .. tostring(sound))
 			end
-			if sound and playerName == rxkiller then self:ltks_SoundPack(sound) end
+			if sound then self:ltks_SoundPack(sound) end
 
 			-- We have landed a kill
 			if playerName == rxkiller then
