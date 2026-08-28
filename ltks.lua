@@ -1965,7 +1965,13 @@ function ltks:OnCommReceived(cchan, message, distribution, sender)
 			-- above) -- no ranks or tiers, so the feed stays listenable.
 			local sound
 			if playerName == rxkiller then
-				sound = ltks:GetKillshotSound(rxstreak)
+				-- Chain restart (multikill window expired) restarts at First
+				-- Blood in every style: dota's rank ladder would otherwise
+				-- announce the top rank right after a gap, same as UT's
+				-- streak-capped line did.
+				if not (ltks.db.profile.style == "dota" and rxmultikill == 0) then
+					sound = ltks:GetKillshotSound(rxstreak)
+				end
 			end
 			if sound and playerName == rxkiller and ltks.db.profile.style == "ut" then
 				-- Streak milestone: announce big on the raid warning frame
