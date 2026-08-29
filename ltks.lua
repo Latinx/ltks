@@ -1689,10 +1689,21 @@ function ltks:OnInitialize()
 			C_Timer.After(0.5, OpenSettings)
 			return
 		end
-		if mainCategoryID then
+		-- OpenSettingsPanel needs a numeric category ID. Current Ace3 keeps
+		-- the parent ID as a name string (its Midnight compat hack), so
+		-- deep-link the first subcategory, whose ID is numeric.
+		local target
+		local bliz = AceConfigDialog and AceConfigDialog.BlizOptions
+		local group = bliz and bliz["LT KillShot General"] and bliz["LT KillShot General"]["LT KillShot General"]
+		if group and group.frame and type(group.frame.name) == "number" then
+			target = group.frame.name
+		end
+		if target then
+			Settings.OpenToCategory(target)
+		elseif type(mainCategoryID) == "number" then
 			Settings.OpenToCategory(mainCategoryID)
 		else
-			Settings.OpenToCategory("LT KillShot")
+			Settings.OpenToCategory()
 		end
 	end
 	self:RegisterChatCommand("ltks", OpenSettings)
