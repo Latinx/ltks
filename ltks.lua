@@ -10,7 +10,7 @@
 --Version bump and changelog for 12.0.7 changes
 
 
-local version = "12.1.19"
+local version = "12.1.20"
 local databaseversion = "1"
 local addonName, ns = ...
 local streak = 0
