@@ -1660,14 +1660,16 @@ function ltks:OnInitialize()
 		end
 		mainCategoryID = id
 		ltks:Print("[LTKS-CFG] category registered (id=" .. tostring(id) .. ")")
-		ltks:Print("[LTKS-CFG] parent lookup: " .. tostring(Settings and Settings.GetCategory and Settings.GetCategory("LT KillShot") ~= nil))
-		local childOk, childErr = pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot General", "General", "LT KillShot")
+		-- Settings.GetCategory matches by category ID on Midnight; Ace3's
+		-- child path looks the parent up by name and fails. Pass the ID.
+		local parentRef = (Settings and Settings.RegisterCanvasLayoutCategory) and mainCategoryID or "LT KillShot"
+		local childOk, childErr = pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot General", "General", parentRef)
 		ltks:Print("[LTKS-CFG] child 'General': " .. tostring(childOk and "ok" or ("FAILED: " .. tostring(childErr))))
-		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot Broadcasts", "Broadcasts", "LT KillShot")
-		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot Screenshots", "Screenshots", "LT KillShot")
-		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot Duels", "Duels", "LT KillShot")
-		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot Ranks", "Ranks", "LT KillShot")
-		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot Output", "Combat Text Output", "LT KillShot")
+		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot Broadcasts", "Broadcasts", parentRef)
+		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot Screenshots", "Screenshots", parentRef)
+		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot Duels", "Duels", parentRef)
+		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot Ranks", "Ranks", parentRef)
+		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot Output", "Combat Text Output", parentRef)
 	end
 	RegisterBlizOptions()
 	C_Timer.After(2, function()
