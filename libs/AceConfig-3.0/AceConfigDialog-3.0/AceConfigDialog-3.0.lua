@@ -1,7 +1,7 @@
 --- AceConfigDialog-3.0 generates AceGUI-3.0 based windows based on option tables.
 -- @class file
 -- @name AceConfigDialog-3.0
--- @release $Id: AceConfigDialog-3.0.lua 1296 2022-11-04 18:50:10Z nevcairiel $
+-- @release $Id$
 
 local LibStub = LibStub
 local gui = LibStub("AceGUI-3.0")
@@ -1998,7 +1998,6 @@ function AceConfigDialog:AddToBlizOptions(appName, name, parent, ...)
 		end
 		group:SetCallback("OnShow", FeedToBlizPanel)
 		group:SetCallback("OnHide", ClearBlizPanel)
-		local categoryID
 		if Settings and Settings.RegisterCanvasLayoutCategory then
 			local categoryName = name or appName
 			if parent then
@@ -2010,21 +2009,19 @@ function AceConfigDialog:AddToBlizOptions(appName, name, parent, ...)
 
 				-- force the generated ID to be used for subcategories, as these can have very simple names like "Profiles"
 				group:SetName(subcategory.ID, parent)
-				categoryID = subcategory.ID
 			else
 				local category = Settings.RegisterCanvasLayoutCategory(group.frame, categoryName)
 				-- using appName here would be cleaner, but would not be 100% compatible
 				-- but for top-level categories it should be fine, as these are typically addon names
+				category.ID = categoryName
 				group:SetName(categoryName, parent)
 				Settings.RegisterAddOnCategory(category)
-				categoryID = category.ID
 			end
 		else
 			group:SetName(name or appName, parent)
 			InterfaceOptions_AddCategory(group.frame)
-			categoryID = group.frame.name
 		end
-		return group.frame, categoryID
+		return group.frame, group.frame.name
 	else
 		error(("%s has already been added to the Blizzard Options Window with the given path"):format(appName), 2)
 	end
