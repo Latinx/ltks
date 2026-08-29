@@ -1660,7 +1660,9 @@ function ltks:OnInitialize()
 		end
 		mainCategoryID = id
 		ltks:Print("[LTKS-CFG] category registered (id=" .. tostring(id) .. ")")
-		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot General", "General", "LT KillShot")
+		ltks:Print("[LTKS-CFG] parent lookup: " .. tostring(Settings and Settings.GetCategory and Settings.GetCategory("LT KillShot") ~= nil))
+		local childOk, childErr = pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot General", "General", "LT KillShot")
+		ltks:Print("[LTKS-CFG] child 'General': " .. tostring(childOk and "ok" or ("FAILED: " .. tostring(childErr))))
 		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot Broadcasts", "Broadcasts", "LT KillShot")
 		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot Screenshots", "Screenshots", "LT KillShot")
 		pcall(AceConfigDialog.AddToBlizOptions, AceConfigDialog, "LT KillShot Duels", "Duels", "LT KillShot")
