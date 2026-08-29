@@ -97,7 +97,7 @@ local methods = {
 		if disabled then
 			self.frame:Disable()
 			self.text:SetTextColor(0.5, 0.5, 0.5)
-			self.check:SetDesaturation(true)
+			self.check:SetDesaturation(1)
 			if self.desc then
 				self.desc:SetTextColor(0.5, 0.5, 0.5)
 			end
@@ -105,9 +105,9 @@ local methods = {
 			self.frame:Enable()
 			self.text:SetTextColor(1, 1, 1)
 			if self.tristate and self.checked == nil then
-				self.check:SetDesaturation(true)
+				self.check:SetDesaturation(1)
 			else
-				self.check:SetDesaturation(false)
+				self.check:SetDesaturation(0)
 			end
 			if self.desc then
 				self.desc:SetTextColor(1, 1, 1)
@@ -119,15 +119,15 @@ local methods = {
 		local check = self.check
 		self.checked = value
 		if value then
-			check:SetDesaturation(false)
+			check:SetDesaturation(0)
 			check:Show()
 		else
 			--Nil is the unknown tristate value
 			if self.tristate and value == nil then
-				check:SetDesaturation(true)
+				check:SetDesaturation(1)
 				check:Show()
 			else
-				check:SetDesaturation(false)
+				check:SetDesaturation(0)
 				check:Hide()
 			end
 		end
